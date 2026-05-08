@@ -1,0 +1,160 @@
+﻿<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2b7a78">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="日日記帳">
+  <title>日日記帳</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero panel">
+      <button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="切換為深色模式">🌙</button>
+      <p class="eyebrow">跨裝置記帳工具</p>
+      <h1>日日記帳</h1>
+      <p class="subtitle">同一套介面可在手機與電腦瀏覽器使用，並支援離線開啟。</p>
+      <div class="hero-actions">
+        <p class="month-badge" id="currentMonthText"></p>
+        <button class="install-btn" id="installAppBtn" type="button" hidden>安裝 App</button>
+      </div>
+      <p class="install-tip" id="installTip" role="status" aria-live="polite" hidden></p>
+    </header>
+
+    <main class="layout">
+      <section class="panel input-panel">
+        <h2>新增一筆</h2>
+        <form id="entryForm" class="entry-form">
+          <label>
+            類型
+            <select id="typeInput" required>
+              <option value="expense">支出</option>
+              <option value="income">收入</option>
+            </select>
+          </label>
+
+          <label>
+            金額
+            <input id="amountInput" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 150 或 75+85" required>
+            <span class="amount-preview" id="amountPreview" hidden></span>
+          </label>
+
+          <label>
+            分類
+            <select id="categoryInput" required></select>
+          </label>
+
+          <div class="custom-category full-width">
+            <div class="custom-category-row">
+              <label class="custom-category-input">
+                自訂分類
+                <input id="customCategoryInput" type="text" maxlength="12" placeholder="例如：咖啡、寵物">
+              </label>
+              <button class="ghost-btn add-category-btn" id="addCategoryBtn" type="button">加入分類</button>
+            </div>
+            <ul id="customCategoryList" class="chip-list" aria-label="自訂分類清單"></ul>
+          </div>
+
+          <label>
+            日期
+            <input id="dateInput" type="date" required>
+          </label>
+
+          <label class="full-width">
+            備註
+            <input id="noteInput" type="text" maxlength="50" placeholder="可留空，例如：午餐、捷運儲值">
+          </label>
+
+          <button class="primary-btn full-width" id="submitBtn" type="submit">加入記帳</button>
+          <button class="ghost-btn full-width" id="cancelEditBtn" type="button" hidden>取消編輯</button>
+          <p class="form-hint" id="formHint" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="panel summary-panel">
+        <h2>本月總覽</h2>
+        <div class="stat-grid">
+          <article class="stat-card">
+            <p>收入</p>
+            <strong id="incomeTotal">$0</strong>
+          </article>
+          <article class="stat-card">
+            <p>支出</p>
+            <strong id="expenseTotal">$0</strong>
+          </article>
+          <article class="stat-card">
+            <p>結餘</p>
+            <strong id="balanceTotal">$0</strong>
+          </article>
+        </div>
+        <div class="summary-actions">
+          <button class="ghost-btn" id="exportBtn" type="button">匯出 CSV</button>
+          <button class="ghost-btn" id="exportJsonBtn" type="button">備份 JSON</button>
+          <button class="ghost-btn" id="importJsonBtn" type="button">還原 JSON</button>
+          <input id="importJsonInput" type="file" accept=".json,application/json" hidden>
+          <button class="ghost-btn danger" id="clearMonthBtn" type="button">清空當月資料</button>
+        </div>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="panel-head">
+          <h2>交易紀錄</h2>
+          <div class="filters">
+            <label>
+              月份
+              <input id="monthFilter" type="month">
+            </label>
+            <label>
+              類型
+              <select id="typeFilter">
+                <option value="all">全部</option>
+                <option value="expense">僅支出</option>
+                <option value="income">僅收入</option>
+              </select>
+            </label>
+            <label class="search-field">
+              關鍵字
+              <input id="keywordFilter" type="search" placeholder="搜尋分類或備註">
+            </label>
+          </div>
+        </div>
+        <ul id="transactionList" class="transaction-list"></ul>
+      </section>
+
+      <section class="panel stats-panel">
+        <h2>分類占比</h2>
+        <p class="stats-subtitle">依當前篩選條件統計（支出）</p>
+        <div id="categoryChart" class="category-chart"></div>
+      </section>
+    </main>
+  </div>
+
+  <template id="transactionItemTemplate">
+    <li class="transaction-item">
+      <div class="item-main">
+        <div class="item-top">
+          <span class="pill"></span>
+          <strong class="item-amount"></strong>
+        </div>
+        <p class="item-meta"></p>
+      </div>
+      <div class="item-actions">
+        <button class="edit-btn" type="button">編輯</button>
+        <button class="delete-btn" type="button">刪除</button>
+      </div>
+    </li>
+  </template>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
+
