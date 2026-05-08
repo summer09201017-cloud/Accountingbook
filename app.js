@@ -1,13 +1,20 @@
 ﻿const STORAGE_KEY = "ledger_entries_v1";
 const CATEGORY_STORAGE_KEY = "ledger_custom_categories_v1";
+const ACCOUNT_STORAGE_KEY = "ledger_custom_accounts_v1";
+const BUDGET_STORAGE_KEY = "ledger_budget_v1";
+const RECURRING_STORAGE_KEY = "ledger_recurring_v1";
 const PREFS_STORAGE_KEY = "ledger_prefs_v1";
 const UNDO_TIMEOUT_MS = 5000;
+const TREND_MONTHS = 6;
+const WEEKDAY_LABELS = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
 let deferredInstallPrompt = null;
 
 const DEFAULT_CATEGORY_MAP = {
   expense: ["飲食", "交通", "居家", "娛樂", "醫療", "購物", "其他"],
   income: ["薪資", "獎金", "投資", "退款", "兼職", "其他"]
 };
+
+const DEFAULT_ACCOUNTS = ["現金", "信用卡", "銀行"];
 
 const els = {
   currentMonthText: document.querySelector("#currentMonthText"),
@@ -19,9 +26,13 @@ const els = {
   amountInput: document.querySelector("#amountInput"),
   amountPreview: document.querySelector("#amountPreview"),
   categoryInput: document.querySelector("#categoryInput"),
+  accountInput: document.querySelector("#accountInput"),
   customCategoryInput: document.querySelector("#customCategoryInput"),
   addCategoryBtn: document.querySelector("#addCategoryBtn"),
   customCategoryList: document.querySelector("#customCategoryList"),
+  customAccountInput: document.querySelector("#customAccountInput"),
+  addAccountBtn: document.querySelector("#addAccountBtn"),
+  customAccountList: document.querySelector("#customAccountList"),
   dateInput: document.querySelector("#dateInput"),
   noteInput: document.querySelector("#noteInput"),
   formHint: document.querySelector("#formHint"),
@@ -30,12 +41,33 @@ const els = {
   incomeTotal: document.querySelector("#incomeTotal"),
   expenseTotal: document.querySelector("#expenseTotal"),
   balanceTotal: document.querySelector("#balanceTotal"),
+  budgetInput: document.querySelector("#budgetInput"),
+  budgetStatus: document.querySelector("#budgetStatus"),
+  budgetBar: document.querySelector("#budgetBar"),
+  accountBalances: document.querySelector("#accountBalances"),
   monthFilter: document.querySelector("#monthFilter"),
   typeFilter: document.querySelector("#typeFilter"),
+  accountFilter: document.querySelector("#accountFilter"),
   keywordFilter: document.querySelector("#keywordFilter"),
   transactionList: document.querySelector("#transactionList"),
   transactionItemTemplate: document.querySelector("#transactionItemTemplate"),
   categoryChart: document.querySelector("#categoryChart"),
+  trendChart: document.querySelector("#trendChart"),
+  toggleRecurringFormBtn: document.querySelector("#toggleRecurringFormBtn"),
+  recurringList: document.querySelector("#recurringList"),
+  recurringForm: document.querySelector("#recurringForm"),
+  recurringType: document.querySelector("#recurringType"),
+  recurringAmount: document.querySelector("#recurringAmount"),
+  recurringFrequency: document.querySelector("#recurringFrequency"),
+  recurringDayOfMonth: document.querySelector("#recurringDayOfMonth"),
+  recurringDayOfMonthLabel: document.querySelector("#recurringDayOfMonthLabel"),
+  recurringDayOfWeek: document.querySelector("#recurringDayOfWeek"),
+  recurringDayOfWeekLabel: document.querySelector("#recurringDayOfWeekLabel"),
+  recurringCategory: document.querySelector("#recurringCategory"),
+  recurringAccount: document.querySelector("#recurringAccount"),
+  recurringStartDate: document.querySelector("#recurringStartDate"),
+  recurringNote: document.querySelector("#recurringNote"),
+  cancelRecurringBtn: document.querySelector("#cancelRecurringBtn"),
   exportBtn: document.querySelector("#exportBtn"),
   exportJsonBtn: document.querySelector("#exportJsonBtn"),
   importJsonBtn: document.querySelector("#importJsonBtn"),
@@ -47,12 +79,18 @@ const els = {
 const state = {
   entries: loadEntries(),
   customCategories: loadCustomCategories(),
+  customAccounts: loadCustomAccounts(),
+  budget: loadBudget(),
+  recurring: loadRecurring(),
   prefs: loadPrefs(),
   month: getCurrentMonth(),
   type: "all",
+  account: "all",
   keyword: "",
   editingId: null
 };
+
+migrateEntries();
 
 function init() {
   applyTheme();
@@ -63,9 +101,18 @@ function init() {
   els.monthFilter.value = state.month;
   els.typeInput.value = state.prefs.lastType;
   syncCategoryOptions(state.prefs.lastType);
+  syncAccountOptions(els.accountInput);
   applyLastCategoryPref();
+  applyLastAccountPref();
   renderCustomCategoryList(state.prefs.lastType);
+  renderCustomAccountList();
+  syncAccountFilterOptions();
+  syncRecurringDayOfMonthOptions();
+  if (Number.isFinite(state.budget.monthlyExpense) && state.budget.monthlyExpense > 0) {
+    els.budgetInput.value = state.budget.monthlyExpense;
+  }
   setupInstallPrompt();
+  generateRecurringEntries();
 
   els.entryForm.addEventListener("submit", onCreateEntry);
   els.typeInput.addEventListener("change", (event) => {
@@ -86,6 +133,23 @@ function init() {
   });
   els.customCategoryList.addEventListener("click", onCustomCategoryListAction);
 
+  els.addAccountBtn.addEventListener("click", onAddCustomAccount);
+  els.customAccountInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onAddCustomAccount();
+  });
+  els.customAccountList.addEventListener("click", onCustomAccountListAction);
+
+  els.budgetInput.addEventListener("input", onBudgetInput);
+
+  els.toggleRecurringFormBtn.addEventListener("click", toggleRecurringForm);
+  els.cancelRecurringBtn.addEventListener("click", () => hideRecurringForm(true));
+  els.recurringFrequency.addEventListener("change", onRecurringFrequencyChange);
+  els.recurringType.addEventListener("change", () => syncCategoryOptions(els.recurringType.value, "", els.recurringCategory));
+  els.recurringForm.addEventListener("submit", onCreateRecurringRule);
+  els.recurringList.addEventListener("click", onRecurringListAction);
+
   els.monthFilter.addEventListener("input", (event) => {
     state.month = event.target.value;
     render();
@@ -93,6 +157,11 @@ function init() {
 
   els.typeFilter.addEventListener("change", (event) => {
     state.type = event.target.value;
+    render();
+  });
+
+  els.accountFilter.addEventListener("change", (event) => {
+    state.account = event.target.value;
     render();
   });
 
@@ -132,6 +201,7 @@ function onCreateEntry(event) {
   const type = els.typeInput.value;
   const amount = evaluateAmount(els.amountInput.value);
   const category = els.categoryInput.value;
+  const account = els.accountInput.value;
   const date = els.dateInput.value;
   const note = els.noteInput.value.trim();
 
@@ -142,6 +212,11 @@ function onCreateEntry(event) {
 
   if (!category) {
     updateHint("請先選擇分類。", true);
+    return;
+  }
+
+  if (!account) {
+    updateHint("請先選擇帳戶。", true);
     return;
   }
 
@@ -158,11 +233,12 @@ function onCreateEntry(event) {
         type,
         amount,
         category,
+        account,
         date,
         note
       };
       persistEntries();
-      saveLastSelection(type, category);
+      saveLastSelection(type, category, account);
       exitEditMode();
       els.amountInput.value = "";
       els.noteInput.value = "";
@@ -180,6 +256,7 @@ function onCreateEntry(event) {
     type,
     amount,
     category,
+    account,
     date,
     note,
     createdAt: Date.now()
@@ -187,7 +264,7 @@ function onCreateEntry(event) {
 
   state.entries.unshift(entry);
   persistEntries();
-  saveLastSelection(type, category);
+  saveLastSelection(type, category, account);
 
   els.amountInput.value = "";
   els.noteInput.value = "";
@@ -260,6 +337,10 @@ function render() {
   renderList(filtered);
   renderTotals(filtered);
   renderCategoryChart(filtered);
+  renderBudget();
+  renderAccountBalances();
+  renderTrendChart();
+  renderRecurringList();
 }
 
 function getFilteredEntries() {
@@ -267,9 +348,10 @@ function getFilteredEntries() {
     .filter((entry) => {
       if (state.month && !entry.date.startsWith(state.month)) return false;
       if (state.type !== "all" && entry.type !== state.type) return false;
+      if (state.account !== "all" && (entry.account || DEFAULT_ACCOUNTS[0]) !== state.account) return false;
 
       if (state.keyword) {
-        const haystack = `${entry.category} ${entry.note}`.toLowerCase();
+        const haystack = `${entry.category} ${entry.account || ""} ${entry.note}`.toLowerCase();
         if (!haystack.includes(state.keyword)) return false;
       }
 
@@ -312,8 +394,10 @@ function renderList(entries) {
     const signed = entry.type === "income" ? "+" : "-";
     amount.textContent = `${signed}${formatCurrency(entry.amount)}`;
 
+    const account = entry.account || DEFAULT_ACCOUNTS[0];
     const notePart = entry.note ? `・${entry.note}` : "";
-    meta.textContent = `${formatDate(entry.date)}・${entry.category}${notePart}`;
+    const recurringPart = entry.recurringId ? "・🔁" : "";
+    meta.textContent = `${formatDate(entry.date)}・${entry.category}・${account}${notePart}${recurringPart}`;
 
     editBtn.dataset.id = entry.id;
     deleteBtn.dataset.id = entry.id;
@@ -398,20 +482,20 @@ function renderCategoryChart(entries) {
   }
 }
 
-function syncCategoryOptions(type, preferredCategory = "") {
+function syncCategoryOptions(type, preferredCategory = "", targetSelect = els.categoryInput) {
   const categories = getAllCategories(type);
-  const prevValue = preferredCategory || els.categoryInput.value;
+  const prevValue = preferredCategory || targetSelect.value;
 
-  els.categoryInput.innerHTML = "";
+  targetSelect.innerHTML = "";
   for (const category of categories) {
     const option = document.createElement("option");
     option.value = category;
     option.textContent = category;
-    els.categoryInput.appendChild(option);
+    targetSelect.appendChild(option);
   }
 
   if (prevValue && categories.includes(prevValue)) {
-    els.categoryInput.value = prevValue;
+    targetSelect.value = prevValue;
   }
 }
 
@@ -483,12 +567,13 @@ function exportCsv() {
     return;
   }
 
-  const rows = ["日期,類型,分類,金額,備註"];
+  const rows = ["日期,類型,分類,帳戶,金額,備註"];
   for (const entry of entries) {
     rows.push([
       entry.date,
       entry.type === "income" ? "收入" : "支出",
       quoteCsv(entry.category),
+      quoteCsv(entry.account || DEFAULT_ACCOUNTS[0]),
       entry.amount,
       quoteCsv(entry.note)
     ].join(","));
@@ -834,6 +919,7 @@ function startEditEntry(id) {
   state.editingId = id;
   els.typeInput.value = entry.type;
   syncCategoryOptions(entry.type, entry.category);
+  syncAccountOptions(els.accountInput);
 
   if (![...els.categoryInput.options].some((opt) => opt.value === entry.category)) {
     const opt = document.createElement("option");
@@ -842,6 +928,16 @@ function startEditEntry(id) {
     els.categoryInput.appendChild(opt);
   }
   els.categoryInput.value = entry.category;
+
+  const entryAccount = entry.account || DEFAULT_ACCOUNTS[0];
+  if (![...els.accountInput.options].some((opt) => opt.value === entryAccount)) {
+    const opt = document.createElement("option");
+    opt.value = entryAccount;
+    opt.textContent = entryAccount;
+    els.accountInput.appendChild(opt);
+  }
+  els.accountInput.value = entryAccount;
+
   els.amountInput.value = String(entry.amount);
   els.dateInput.value = entry.date;
   els.noteInput.value = entry.note || "";
@@ -879,6 +975,7 @@ function cancelEdit() {
   els.typeInput.value = state.prefs.lastType;
   syncCategoryOptions(state.prefs.lastType);
   applyLastCategoryPref();
+  applyLastAccountPref();
   renderCustomCategoryList(state.prefs.lastType);
   updateAmountPreview();
   render();
@@ -977,7 +1074,8 @@ function defaultPrefs() {
   return {
     theme: null,
     lastType: "expense",
-    lastCategory: { expense: "", income: "" }
+    lastCategory: { expense: "", income: "" },
+    lastAccount: ""
   };
 }
 
@@ -995,7 +1093,8 @@ function loadPrefs() {
       lastCategory: {
         expense: typeof lastCategory.expense === "string" ? lastCategory.expense : "",
         income: typeof lastCategory.income === "string" ? lastCategory.income : ""
-      }
+      },
+      lastAccount: typeof parsed.lastAccount === "string" ? parsed.lastAccount : ""
     };
   } catch {
     return defaultPrefs();
@@ -1006,9 +1105,10 @@ function persistPrefs() {
   localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(state.prefs));
 }
 
-function saveLastSelection(type, category) {
+function saveLastSelection(type, category, account) {
   state.prefs.lastType = type === "income" ? "income" : "expense";
   state.prefs.lastCategory[state.prefs.lastType] = category || "";
+  if (account) state.prefs.lastAccount = account;
   persistPrefs();
 }
 
@@ -1022,12 +1122,24 @@ function applyLastCategoryPref() {
   }
 }
 
+function applyLastAccountPref() {
+  const last = state.prefs.lastAccount;
+  if (!last) return;
+  const all = getAllAccounts();
+  if (all.includes(last)) {
+    els.accountInput.value = last;
+  }
+}
+
 function exportJson() {
   const payload = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     exportedAt: new Date().toISOString(),
     entries: state.entries,
-    customCategories: state.customCategories
+    customCategories: state.customCategories,
+    customAccounts: state.customAccounts,
+    budget: state.budget,
+    recurring: state.recurring
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const link = document.createElement("a");
@@ -1095,8 +1207,47 @@ async function onImportJsonChange(event) {
       }
     }
 
+    if (Array.isArray(data.customAccounts)) {
+      const merged = sanitizeCustomCategoryList(
+        [...state.customAccounts, ...data.customAccounts],
+        DEFAULT_ACCOUNTS
+      );
+      if (JSON.stringify(merged) !== JSON.stringify(state.customAccounts)) {
+        state.customAccounts = merged;
+        persistCustomAccounts();
+        syncAccountOptions(els.accountInput);
+        syncAccountOptions(els.recurringAccount);
+        syncAccountFilterOptions();
+        renderCustomAccountList();
+      }
+    }
+
+    if (data.budget && typeof data.budget === "object") {
+      const monthlyExpense = Number(data.budget.monthlyExpense);
+      if (Number.isFinite(monthlyExpense) && monthlyExpense >= 0) {
+        state.budget.monthlyExpense = monthlyExpense;
+        persistBudget();
+        els.budgetInput.value = monthlyExpense > 0 ? String(monthlyExpense) : "";
+      }
+    }
+
+    let importedRules = 0;
+    if (Array.isArray(data.recurring)) {
+      const existingIds = new Set(state.recurring.map((r) => r.id));
+      for (const rule of data.recurring) {
+        if (isValidRecurringRule(rule) && !existingIds.has(rule.id)) {
+          state.recurring.push(rule);
+          importedRules++;
+        }
+      }
+      if (importedRules > 0) {
+        persistRecurring();
+      }
+    }
+
+    migrateEntries();
     render();
-    showToast(`匯入完成：新增 ${newEntries.length}、更新 ${updatedMap.size}`);
+    showToast(`匯入完成：新增 ${newEntries.length}、更新 ${updatedMap.size}${importedRules ? `、規則 ${importedRules}` : ""}`);
   } catch {
     showToast("匯入失敗：請確認是備份過的 JSON。", { duration: 3600 });
   } finally {
@@ -1118,6 +1269,760 @@ function isValidImportEntry(entry) {
     typeof entry.date === "string" &&
     /^\d{4}-\d{2}-\d{2}$/.test(entry.date)
   );
+}
+
+// ─── Migration ───────────────────────────────────────────────
+
+function migrateEntries() {
+  let dirty = false;
+  const fallback = DEFAULT_ACCOUNTS[0];
+  for (const entry of state.entries) {
+    if (typeof entry.account !== "string" || !entry.account.trim()) {
+      entry.account = fallback;
+      dirty = true;
+    }
+  }
+  if (dirty) persistEntries();
+}
+
+// ─── Accounts ────────────────────────────────────────────────
+
+function loadCustomAccounts() {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return sanitizeCustomCategoryList(parsed, DEFAULT_ACCOUNTS);
+  } catch {
+    return [];
+  }
+}
+
+function persistCustomAccounts() {
+  localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(state.customAccounts));
+}
+
+function getAllAccounts() {
+  return uniqueCategoryList([...DEFAULT_ACCOUNTS, ...state.customAccounts]);
+}
+
+function syncAccountOptions(targetSelect) {
+  const accounts = getAllAccounts();
+  const prev = targetSelect.value;
+  targetSelect.innerHTML = "";
+  for (const account of accounts) {
+    const option = document.createElement("option");
+    option.value = account;
+    option.textContent = account;
+    targetSelect.appendChild(option);
+  }
+  if (prev && accounts.includes(prev)) targetSelect.value = prev;
+}
+
+function syncAccountFilterOptions() {
+  const accounts = getAllAccounts();
+  const prev = state.account;
+  els.accountFilter.innerHTML = "";
+
+  const allOpt = document.createElement("option");
+  allOpt.value = "all";
+  allOpt.textContent = "全部帳戶";
+  els.accountFilter.appendChild(allOpt);
+
+  for (const account of accounts) {
+    const option = document.createElement("option");
+    option.value = account;
+    option.textContent = account;
+    els.accountFilter.appendChild(option);
+  }
+
+  if (prev && (prev === "all" || accounts.includes(prev))) {
+    els.accountFilter.value = prev;
+  } else {
+    els.accountFilter.value = "all";
+    state.account = "all";
+  }
+}
+
+function renderCustomAccountList() {
+  els.customAccountList.innerHTML = "";
+
+  if (!state.customAccounts.length) {
+    const empty = document.createElement("li");
+    empty.className = "chip-empty";
+    empty.textContent = "目前沒有自訂帳戶";
+    els.customAccountList.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const account of state.customAccounts) {
+    const li = document.createElement("li");
+    li.className = "chip-item";
+
+    const text = document.createElement("span");
+    text.textContent = account;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "chip-delete";
+    removeBtn.dataset.account = account;
+    removeBtn.setAttribute("aria-label", `刪除 ${account}`);
+    removeBtn.textContent = "×";
+
+    li.appendChild(text);
+    li.appendChild(removeBtn);
+    fragment.appendChild(li);
+  }
+
+  els.customAccountList.appendChild(fragment);
+}
+
+function onAddCustomAccount() {
+  const account = normalizeCategoryName(els.customAccountInput.value);
+
+  if (!account) {
+    updateHint("請先輸入自訂帳戶名稱。", true);
+    return;
+  }
+  if (account.length > 12) {
+    updateHint("帳戶名稱最多 12 個字元。", true);
+    return;
+  }
+  if (getAllAccounts().includes(account)) {
+    updateHint("這個帳戶已存在。", true);
+    return;
+  }
+
+  state.customAccounts.push(account);
+  state.customAccounts = sanitizeCustomCategoryList(state.customAccounts, DEFAULT_ACCOUNTS);
+  persistCustomAccounts();
+
+  els.customAccountInput.value = "";
+  syncAccountOptions(els.accountInput);
+  syncAccountOptions(els.recurringAccount);
+  syncAccountFilterOptions();
+  renderCustomAccountList();
+  els.accountInput.value = account;
+  render();
+  updateHint(`已新增「${account}」帳戶。`, false);
+}
+
+function onCustomAccountListAction(event) {
+  const target = event.target.closest("button[data-account]");
+  if (!target) return;
+  const account = target.dataset.account;
+  if (!account) return;
+
+  const inUse = state.entries.some((entry) => (entry.account || DEFAULT_ACCOUNTS[0]) === account);
+  if (inUse) {
+    const yes = confirm(`「${account}」已被部分交易使用，刪除後這些交易會歸到「${DEFAULT_ACCOUNTS[0]}」。確定刪除？`);
+    if (!yes) return;
+    for (const entry of state.entries) {
+      if ((entry.account || DEFAULT_ACCOUNTS[0]) === account) {
+        entry.account = DEFAULT_ACCOUNTS[0];
+      }
+    }
+    persistEntries();
+  }
+
+  state.customAccounts = state.customAccounts.filter((item) => item !== account);
+  persistCustomAccounts();
+  syncAccountOptions(els.accountInput);
+  syncAccountOptions(els.recurringAccount);
+  syncAccountFilterOptions();
+  renderCustomAccountList();
+  render();
+  updateHint(`已刪除「${account}」自訂帳戶。`, false);
+}
+
+// ─── Budget ──────────────────────────────────────────────────
+
+function loadBudget() {
+  try {
+    const raw = localStorage.getItem(BUDGET_STORAGE_KEY);
+    if (!raw) return { monthlyExpense: 0 };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return { monthlyExpense: 0 };
+    const monthlyExpense = Number(parsed.monthlyExpense);
+    return {
+      monthlyExpense: Number.isFinite(monthlyExpense) && monthlyExpense >= 0 ? monthlyExpense : 0
+    };
+  } catch {
+    return { monthlyExpense: 0 };
+  }
+}
+
+function persistBudget() {
+  localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify(state.budget));
+}
+
+function onBudgetInput(event) {
+  const value = Number(event.target.value);
+  state.budget.monthlyExpense = Number.isFinite(value) && value >= 0 ? value : 0;
+  persistBudget();
+  renderBudget();
+}
+
+function renderBudget() {
+  const budget = state.budget.monthlyExpense || 0;
+  const month = state.month || getCurrentMonth();
+  let spent = 0;
+  for (const entry of state.entries) {
+    if (entry.type !== "expense") continue;
+    if (!entry.date.startsWith(month)) continue;
+    spent += entry.amount;
+  }
+
+  if (!budget || budget <= 0) {
+    els.budgetStatus.textContent = "尚未設定";
+    els.budgetStatus.className = "budget-status";
+    els.budgetBar.style.width = "0%";
+    els.budgetBar.className = "budget-bar";
+    return;
+  }
+
+  const ratio = spent / budget;
+  const pct = Math.min(ratio * 100, 100);
+  const remaining = budget - spent;
+
+  els.budgetBar.style.width = `${pct.toFixed(2)}%`;
+  els.budgetBar.className = "budget-bar";
+  els.budgetStatus.className = "budget-status";
+
+  if (ratio >= 1) {
+    els.budgetBar.classList.add("over");
+    els.budgetStatus.classList.add("over");
+    els.budgetStatus.textContent = `超支 ${formatCurrency(spent - budget)}（${(ratio * 100).toFixed(0)}%）`;
+  } else if (ratio >= 0.8) {
+    els.budgetBar.classList.add("warn");
+    els.budgetStatus.classList.add("warn");
+    els.budgetStatus.textContent = `已用 ${(ratio * 100).toFixed(0)}%・剩 ${formatCurrency(remaining)}`;
+  } else {
+    els.budgetStatus.classList.add("safe");
+    els.budgetStatus.textContent = `已用 ${(ratio * 100).toFixed(0)}%・剩 ${formatCurrency(remaining)}`;
+  }
+}
+
+// ─── Account Balances ────────────────────────────────────────
+
+function renderAccountBalances() {
+  const accounts = getAllAccounts();
+  const balances = new Map(accounts.map((a) => [a, 0]));
+
+  for (const entry of state.entries) {
+    const account = entry.account || DEFAULT_ACCOUNTS[0];
+    const current = balances.get(account) || 0;
+    const sign = entry.type === "income" ? 1 : -1;
+    balances.set(account, current + sign * entry.amount);
+  }
+
+  els.accountBalances.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+  for (const account of accounts) {
+    const balance = balances.get(account) || 0;
+    if (balance === 0 && !state.entries.some((e) => (e.account || DEFAULT_ACCOUNTS[0]) === account)) {
+      continue;
+    }
+    const li = document.createElement("li");
+    li.className = "account-item";
+
+    const name = document.createElement("span");
+    name.className = "account-item-name";
+    name.textContent = account;
+
+    const amount = document.createElement("span");
+    amount.className = "account-item-amount";
+    if (balance < 0) amount.classList.add("negative");
+    amount.textContent = formatCurrency(balance);
+
+    li.appendChild(name);
+    li.appendChild(amount);
+    fragment.appendChild(li);
+  }
+
+  if (!fragment.childElementCount) {
+    const empty = document.createElement("li");
+    empty.className = "chip-empty";
+    empty.textContent = "尚無交易資料";
+    els.accountBalances.appendChild(empty);
+    return;
+  }
+  els.accountBalances.appendChild(fragment);
+}
+
+// ─── Trend Chart ─────────────────────────────────────────────
+
+function renderTrendChart() {
+  const months = lastNMonths(TREND_MONTHS);
+  const data = months.map((m) => ({ month: m, income: 0, expense: 0 }));
+  const indexByMonth = new Map(months.map((m, i) => [m, i]));
+
+  for (const entry of state.entries) {
+    const m = entry.date.slice(0, 7);
+    const idx = indexByMonth.get(m);
+    if (idx === undefined) continue;
+    if (entry.type === "income") data[idx].income += entry.amount;
+    else data[idx].expense += entry.amount;
+  }
+
+  els.trendChart.innerHTML = "";
+
+  const hasAny = data.some((d) => d.income > 0 || d.expense > 0);
+  if (!hasAny) {
+    const empty = document.createElement("p");
+    empty.className = "trend-empty";
+    empty.textContent = "尚無資料可繪圖。";
+    els.trendChart.appendChild(empty);
+    return;
+  }
+
+  const max = Math.max(...data.map((d) => Math.max(d.income, d.expense)), 1);
+  const niceMax = niceCeil(max);
+
+  const W = 600;
+  const H = 220;
+  const padL = 44;
+  const padR = 12;
+  const padT = 12;
+  const padB = 32;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const groupW = innerW / data.length;
+  const barW = Math.min(20, groupW * 0.36);
+  const gap = 2;
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "近 6 個月收入與支出趨勢");
+
+  for (let i = 0; i <= 4; i++) {
+    const ratio = i / 4;
+    const y = padT + innerH - ratio * innerH;
+    const line = document.createElementNS(svgNS, "line");
+    line.setAttribute("x1", padL);
+    line.setAttribute("x2", W - padR);
+    line.setAttribute("y1", y);
+    line.setAttribute("y2", y);
+    line.setAttribute("class", "trend-grid-line");
+    svg.appendChild(line);
+
+    const label = document.createElementNS(svgNS, "text");
+    label.setAttribute("x", padL - 6);
+    label.setAttribute("y", y + 3);
+    label.setAttribute("text-anchor", "end");
+    label.setAttribute("class", "trend-tick-label");
+    label.textContent = formatCompact(niceMax * ratio);
+    svg.appendChild(label);
+  }
+
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    const cx = padL + groupW * (i + 0.5);
+
+    const incomeH = niceMax > 0 ? (d.income / niceMax) * innerH : 0;
+    const expenseH = niceMax > 0 ? (d.expense / niceMax) * innerH : 0;
+
+    const incomeRect = document.createElementNS(svgNS, "rect");
+    incomeRect.setAttribute("class", "trend-bar-income");
+    incomeRect.setAttribute("x", cx - barW - gap / 2);
+    incomeRect.setAttribute("y", padT + innerH - incomeH);
+    incomeRect.setAttribute("width", barW);
+    incomeRect.setAttribute("height", incomeH);
+    incomeRect.setAttribute("rx", 2);
+    const incomeTitle = document.createElementNS(svgNS, "title");
+    incomeTitle.textContent = `${d.month} 收入 ${formatCurrency(d.income)}`;
+    incomeRect.appendChild(incomeTitle);
+    svg.appendChild(incomeRect);
+
+    const expenseRect = document.createElementNS(svgNS, "rect");
+    expenseRect.setAttribute("class", "trend-bar-expense");
+    expenseRect.setAttribute("x", cx + gap / 2);
+    expenseRect.setAttribute("y", padT + innerH - expenseH);
+    expenseRect.setAttribute("width", barW);
+    expenseRect.setAttribute("height", expenseH);
+    expenseRect.setAttribute("rx", 2);
+    const expenseTitle = document.createElementNS(svgNS, "title");
+    expenseTitle.textContent = `${d.month} 支出 ${formatCurrency(d.expense)}`;
+    expenseRect.appendChild(expenseTitle);
+    svg.appendChild(expenseRect);
+
+    const monthLabel = document.createElementNS(svgNS, "text");
+    monthLabel.setAttribute("x", cx);
+    monthLabel.setAttribute("y", H - padB + 18);
+    monthLabel.setAttribute("text-anchor", "middle");
+    monthLabel.setAttribute("class", "trend-tick-label");
+    monthLabel.textContent = d.month.slice(5) + "月";
+    svg.appendChild(monthLabel);
+  }
+
+  els.trendChart.appendChild(svg);
+
+  const legend = document.createElement("div");
+  legend.className = "trend-legend";
+  legend.innerHTML = `
+    <span><span class="trend-legend-dot income"></span>收入</span>
+    <span><span class="trend-legend-dot expense"></span>支出</span>
+  `;
+  els.trendChart.appendChild(legend);
+}
+
+function lastNMonths(n) {
+  const result = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    result.push(`${y}-${m}`);
+  }
+  return result;
+}
+
+function niceCeil(value) {
+  if (value <= 0) return 1;
+  const exp = Math.pow(10, Math.floor(Math.log10(value)));
+  const fraction = value / exp;
+  let nice;
+  if (fraction <= 1) nice = 1;
+  else if (fraction <= 2) nice = 2;
+  else if (fraction <= 5) nice = 5;
+  else nice = 10;
+  return nice * exp;
+}
+
+function formatCompact(num) {
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(0)}k`;
+  return String(Math.round(num));
+}
+
+// ─── Recurring ───────────────────────────────────────────────
+
+function loadRecurring() {
+  try {
+    const raw = localStorage.getItem(RECURRING_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidRecurringRule);
+  } catch {
+    return [];
+  }
+}
+
+function persistRecurring() {
+  localStorage.setItem(RECURRING_STORAGE_KEY, JSON.stringify(state.recurring));
+}
+
+function isValidRecurringRule(rule) {
+  if (!rule || typeof rule !== "object") return false;
+  if (typeof rule.id !== "string") return false;
+  if (rule.type !== "income" && rule.type !== "expense") return false;
+  if (typeof rule.amount !== "number" || !Number.isFinite(rule.amount) || rule.amount <= 0) return false;
+  if (typeof rule.category !== "string" || !rule.category) return false;
+  if (typeof rule.account !== "string" || !rule.account) return false;
+  if (rule.frequency !== "monthly" && rule.frequency !== "weekly") return false;
+  if (typeof rule.startDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(rule.startDate)) return false;
+  if (rule.frequency === "monthly") {
+    if (!Number.isInteger(rule.dayOfMonth) || rule.dayOfMonth < 1 || rule.dayOfMonth > 31) return false;
+  } else {
+    if (!Number.isInteger(rule.dayOfWeek) || rule.dayOfWeek < 0 || rule.dayOfWeek > 6) return false;
+  }
+  return true;
+}
+
+function syncRecurringDayOfMonthOptions() {
+  els.recurringDayOfMonth.innerHTML = "";
+  for (let i = 1; i <= 31; i++) {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `${i} 號`;
+    els.recurringDayOfMonth.appendChild(opt);
+  }
+}
+
+function toggleRecurringForm() {
+  if (els.recurringForm.hidden) {
+    showRecurringForm();
+  } else {
+    hideRecurringForm();
+  }
+}
+
+function showRecurringForm() {
+  syncCategoryOptions(els.recurringType.value, "", els.recurringCategory);
+  syncAccountOptions(els.recurringAccount);
+  els.recurringStartDate.value = toDateInputValue(new Date());
+  els.recurringDayOfMonth.value = String(new Date().getDate());
+  els.recurringDayOfWeek.value = String(new Date().getDay());
+  els.recurringFrequency.value = "monthly";
+  onRecurringFrequencyChange();
+  els.recurringForm.hidden = false;
+  els.toggleRecurringFormBtn.textContent = "− 收起表單";
+}
+
+function hideRecurringForm(reset = false) {
+  els.recurringForm.hidden = true;
+  els.toggleRecurringFormBtn.textContent = "+ 新增規則";
+  if (reset) {
+    els.recurringForm.reset();
+  }
+}
+
+function onRecurringFrequencyChange() {
+  const freq = els.recurringFrequency.value;
+  els.recurringDayOfMonthLabel.hidden = freq !== "monthly";
+  els.recurringDayOfWeekLabel.hidden = freq !== "weekly";
+}
+
+function onCreateRecurringRule(event) {
+  event.preventDefault();
+
+  const type = els.recurringType.value;
+  const amount = Number(els.recurringAmount.value);
+  const frequency = els.recurringFrequency.value;
+  const category = els.recurringCategory.value;
+  const account = els.recurringAccount.value;
+  const startDate = els.recurringStartDate.value;
+  const note = els.recurringNote.value.trim();
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    showToast("請輸入大於 0 的金額。", { duration: 2400 });
+    return;
+  }
+  if (!category) {
+    showToast("請先選擇分類。", { duration: 2400 });
+    return;
+  }
+  if (!account) {
+    showToast("請先選擇帳戶。", { duration: 2400 });
+    return;
+  }
+  if (!startDate) {
+    showToast("請選擇開始日期。", { duration: 2400 });
+    return;
+  }
+
+  const rule = {
+    id: (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : `rule_${Date.now()}_${Math.random()}`,
+    type,
+    amount,
+    category,
+    account,
+    note,
+    frequency,
+    startDate,
+    lastGenerated: null,
+    active: true,
+    createdAt: Date.now()
+  };
+
+  if (frequency === "monthly") {
+    rule.dayOfMonth = Number(els.recurringDayOfMonth.value);
+  } else {
+    rule.dayOfWeek = Number(els.recurringDayOfWeek.value);
+  }
+
+  state.recurring.push(rule);
+  persistRecurring();
+  hideRecurringForm(true);
+  generateRecurringEntries({ silentNone: true });
+  render();
+  showToast("已新增固定收支規則。");
+}
+
+function onRecurringListAction(event) {
+  const toggleBtn = event.target.closest("button.recurring-toggle[data-id]");
+  if (toggleBtn) {
+    toggleRecurringRule(toggleBtn.dataset.id);
+    return;
+  }
+  const deleteBtn = event.target.closest("button.recurring-delete[data-id]");
+  if (deleteBtn) {
+    deleteRecurringRule(deleteBtn.dataset.id);
+  }
+}
+
+function toggleRecurringRule(id) {
+  const rule = state.recurring.find((r) => r.id === id);
+  if (!rule) return;
+  rule.active = !rule.active;
+  persistRecurring();
+  if (rule.active) generateRecurringEntries({ silentNone: true });
+  render();
+  showToast(rule.active ? "已啟用規則。" : "已停用規則。", { duration: 1800 });
+}
+
+function deleteRecurringRule(id) {
+  const rule = state.recurring.find((r) => r.id === id);
+  if (!rule) return;
+  const yes = confirm(`確定刪除規則「${rule.note || rule.category}」？已產生的歷史交易不會被刪除。`);
+  if (!yes) return;
+
+  state.recurring = state.recurring.filter((r) => r.id !== id);
+  persistRecurring();
+  render();
+  showToast("已刪除規則。", { duration: 1800 });
+}
+
+function renderRecurringList() {
+  els.recurringList.innerHTML = "";
+
+  if (!state.recurring.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "尚無固定收支規則。";
+    els.recurringList.appendChild(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const rule of state.recurring) {
+    const li = document.createElement("li");
+    li.className = "recurring-item";
+    if (!rule.active) li.classList.add("inactive");
+
+    const info = document.createElement("div");
+    info.className = "recurring-info";
+
+    const top = document.createElement("div");
+    top.className = "recurring-info-top";
+
+    const pill = document.createElement("span");
+    pill.className = `pill ${rule.type}`;
+    pill.textContent = rule.type === "income" ? "收入" : "支出";
+
+    const amount = document.createElement("strong");
+    amount.textContent = formatCurrency(rule.amount);
+
+    const title = document.createElement("span");
+    title.textContent = rule.note || rule.category;
+
+    top.appendChild(pill);
+    top.appendChild(amount);
+    top.appendChild(title);
+
+    const meta = document.createElement("p");
+    meta.className = "recurring-info-meta";
+    const freqLabel = rule.frequency === "monthly"
+      ? `每月 ${rule.dayOfMonth} 號`
+      : `每週${WEEKDAY_LABELS[rule.dayOfWeek]}`;
+    meta.textContent = `${freqLabel}・${rule.category}・${rule.account}・自 ${formatDate(rule.startDate)}`;
+
+    info.appendChild(top);
+    info.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "recurring-actions";
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "recurring-toggle";
+    if (!rule.active) toggleBtn.classList.add("paused");
+    toggleBtn.dataset.id = rule.id;
+    toggleBtn.textContent = rule.active ? "啟用中" : "已停用";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "recurring-delete";
+    deleteBtn.dataset.id = rule.id;
+    deleteBtn.textContent = "刪除";
+
+    actions.appendChild(toggleBtn);
+    actions.appendChild(deleteBtn);
+
+    li.appendChild(info);
+    li.appendChild(actions);
+    fragment.appendChild(li);
+  }
+  els.recurringList.appendChild(fragment);
+}
+
+function generateRecurringEntries({ silentNone = false } = {}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let generated = 0;
+  let touched = false;
+
+  for (const rule of state.recurring) {
+    if (!rule.active) continue;
+
+    const startCursor = nextOccurrenceFrom(rule, rule.lastGenerated || prevDay(rule.startDate));
+    let cursor = startCursor;
+    while (cursor && cursor <= today) {
+      const dateStr = toDateInputValue(cursor);
+      if (dateStr >= rule.startDate) {
+        const entry = {
+          id: (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}_${Math.random()}`,
+          type: rule.type,
+          amount: rule.amount,
+          category: rule.category,
+          account: rule.account,
+          date: dateStr,
+          note: rule.note || "",
+          createdAt: Date.now(),
+          recurringId: rule.id
+        };
+        state.entries.unshift(entry);
+        rule.lastGenerated = dateStr;
+        generated++;
+        touched = true;
+      }
+      cursor = nextOccurrenceAfter(rule, cursor);
+    }
+  }
+
+  if (touched) {
+    persistEntries();
+    persistRecurring();
+  }
+
+  if (generated > 0) {
+    showToast(`自動補上 ${generated} 筆固定收支。`, { duration: 3200 });
+  } else if (!silentNone && state.recurring.length > 0) {
+    // No-op: nothing new to generate
+  }
+}
+
+function nextOccurrenceFrom(rule, fromDateStr) {
+  const fromDate = new Date(`${fromDateStr}T00:00:00`);
+  if (Number.isNaN(fromDate.getTime())) return null;
+  return nextOccurrenceAfter(rule, fromDate);
+}
+
+function nextOccurrenceAfter(rule, afterDate) {
+  if (rule.frequency === "monthly") {
+    const next = new Date(afterDate.getFullYear(), afterDate.getMonth(), 1);
+    for (let i = 0; i < 24; i++) {
+      const lastDay = lastDayOfMonth(next.getFullYear(), next.getMonth());
+      const day = Math.min(rule.dayOfMonth, lastDay);
+      const candidate = new Date(next.getFullYear(), next.getMonth(), day);
+      candidate.setHours(0, 0, 0, 0);
+      if (candidate > afterDate) return candidate;
+      next.setMonth(next.getMonth() + 1);
+    }
+    return null;
+  }
+  const next = new Date(afterDate);
+  next.setHours(0, 0, 0, 0);
+  do {
+    next.setDate(next.getDate() + 1);
+  } while (next.getDay() !== rule.dayOfWeek);
+  return next;
+}
+
+function prevDay(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() - 1);
+  return toDateInputValue(d);
+}
+
+function lastDayOfMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
 }
 
 init();

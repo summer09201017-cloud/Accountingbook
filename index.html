@@ -51,6 +51,11 @@
             <select id="categoryInput" required></select>
           </label>
 
+          <label>
+            帳戶
+            <select id="accountInput" required></select>
+          </label>
+
           <div class="custom-category full-width">
             <div class="custom-category-row">
               <label class="custom-category-input">
@@ -60,6 +65,17 @@
               <button class="ghost-btn add-category-btn" id="addCategoryBtn" type="button">加入分類</button>
             </div>
             <ul id="customCategoryList" class="chip-list" aria-label="自訂分類清單"></ul>
+          </div>
+
+          <div class="custom-category full-width">
+            <div class="custom-category-row">
+              <label class="custom-category-input">
+                自訂帳戶
+                <input id="customAccountInput" type="text" maxlength="12" placeholder="例如：悠遊卡、街口">
+              </label>
+              <button class="ghost-btn" id="addAccountBtn" type="button">加入帳戶</button>
+            </div>
+            <ul id="customAccountList" class="chip-list" aria-label="自訂帳戶清單"></ul>
           </div>
 
           <label>
@@ -94,6 +110,25 @@
             <strong id="balanceTotal">$0</strong>
           </article>
         </div>
+
+        <div class="budget-section">
+          <div class="budget-head">
+            <label class="budget-input-label">
+              本月預算（支出）
+              <input id="budgetInput" type="number" inputmode="decimal" min="0" step="100" placeholder="例如 30000">
+            </label>
+            <span class="budget-status" id="budgetStatus">尚未設定</span>
+          </div>
+          <div class="budget-track">
+            <div class="budget-bar" id="budgetBar"></div>
+          </div>
+        </div>
+
+        <div class="account-balances">
+          <h3 class="subhead">各帳戶結餘</h3>
+          <ul id="accountBalances" class="account-list"></ul>
+        </div>
+
         <div class="summary-actions">
           <button class="ghost-btn" id="exportBtn" type="button">匯出 CSV</button>
           <button class="ghost-btn" id="exportJsonBtn" type="button">備份 JSON</button>
@@ -101,6 +136,71 @@
           <input id="importJsonInput" type="file" accept=".json,application/json" hidden>
           <button class="ghost-btn danger" id="clearMonthBtn" type="button">清空當月資料</button>
         </div>
+      </section>
+
+      <section class="panel recurring-panel">
+        <div class="panel-head">
+          <h2>固定收支</h2>
+          <button class="ghost-btn" id="toggleRecurringFormBtn" type="button">+ 新增規則</button>
+        </div>
+        <ul id="recurringList" class="recurring-list"></ul>
+
+        <form id="recurringForm" class="recurring-form" hidden>
+          <label>
+            類型
+            <select id="recurringType" required>
+              <option value="expense">支出</option>
+              <option value="income">收入</option>
+            </select>
+          </label>
+          <label>
+            金額
+            <input id="recurringAmount" type="number" inputmode="decimal" min="0" step="0.01" required>
+          </label>
+          <label>
+            頻率
+            <select id="recurringFrequency" required>
+              <option value="monthly">每月</option>
+              <option value="weekly">每週</option>
+            </select>
+          </label>
+          <label id="recurringDayOfMonthLabel">
+            每月日期
+            <select id="recurringDayOfMonth"></select>
+          </label>
+          <label id="recurringDayOfWeekLabel" hidden>
+            星期
+            <select id="recurringDayOfWeek">
+              <option value="1">星期一</option>
+              <option value="2">星期二</option>
+              <option value="3">星期三</option>
+              <option value="4">星期四</option>
+              <option value="5">星期五</option>
+              <option value="6">星期六</option>
+              <option value="0">星期日</option>
+            </select>
+          </label>
+          <label>
+            分類
+            <select id="recurringCategory" required></select>
+          </label>
+          <label>
+            帳戶
+            <select id="recurringAccount" required></select>
+          </label>
+          <label>
+            開始日期
+            <input id="recurringStartDate" type="date" required>
+          </label>
+          <label class="full-width">
+            備註
+            <input id="recurringNote" type="text" maxlength="50" placeholder="例如：房租、Netflix 訂閱">
+          </label>
+          <div class="recurring-form-actions full-width">
+            <button class="primary-btn" type="submit">儲存規則</button>
+            <button class="ghost-btn" id="cancelRecurringBtn" type="button">取消</button>
+          </div>
+        </form>
       </section>
 
       <section class="panel list-panel">
@@ -119,13 +219,25 @@
                 <option value="income">僅收入</option>
               </select>
             </label>
+            <label>
+              帳戶
+              <select id="accountFilter">
+                <option value="all">全部帳戶</option>
+              </select>
+            </label>
             <label class="search-field">
               關鍵字
-              <input id="keywordFilter" type="search" placeholder="搜尋分類或備註">
+              <input id="keywordFilter" type="search" placeholder="搜尋分類、帳戶或備註">
             </label>
           </div>
         </div>
         <ul id="transactionList" class="transaction-list"></ul>
+      </section>
+
+      <section class="panel trend-panel">
+        <h2>月度趨勢</h2>
+        <p class="stats-subtitle">最近 6 個月收入與支出</p>
+        <div id="trendChart" class="trend-chart"></div>
       </section>
 
       <section class="panel stats-panel">
