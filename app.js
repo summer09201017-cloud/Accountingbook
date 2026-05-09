@@ -4,15 +4,82 @@ const ACCOUNT_STORAGE_KEY = "ledger_custom_accounts_v1";
 const BUDGET_STORAGE_KEY = "ledger_budget_v1";
 const RECURRING_STORAGE_KEY = "ledger_recurring_v1";
 const PREFS_STORAGE_KEY = "ledger_prefs_v1";
+const CATEGORY_ICON_STORAGE_KEY = "ledger_category_icons_v1";
 const UNDO_TIMEOUT_MS = 5000;
 const TREND_MONTHS = 6;
 const WEEKDAY_LABELS = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+const TAB_NAMES = ["record", "list", "chart", "report", "settings"];
+const DEFAULT_TAB = "record";
+const FALLBACK_ICON = "📌";
 let deferredInstallPrompt = null;
 
 const DEFAULT_CATEGORY_MAP = {
   expense: ["飲食", "交通", "居家", "娛樂", "醫療", "購物", "其他"],
   income: ["薪資", "獎金", "投資", "退款", "兼職", "其他"]
 };
+
+const DEFAULT_CATEGORY_ICONS = {
+  expense: {
+    "飲食": "🍱",
+    "交通": "🚇",
+    "居家": "🏠",
+    "娛樂": "🎮",
+    "醫療": "💊",
+    "購物": "🛍️",
+    "其他": "📌"
+  },
+  income: {
+    "薪資": "💰",
+    "獎金": "🎁",
+    "投資": "📈",
+    "退款": "↩️",
+    "兼職": "💼",
+    "其他": "📌"
+  }
+};
+
+const EMOJI_GROUPS = [
+  {
+    name: "日常",
+    emojis: ["🍱", "🍔", "🍕", "🍣", "🍜", "🍝", "🍞", "🥗", "🍰", "☕", "🍵", "🥤", "🍺", "🍷", "🍦", "🍎", "🥩", "🥬", "🥖", "🛒", "🛍️", "🧾", "🧴", "🧻", "🧼"]
+  },
+  {
+    name: "交通",
+    emojis: ["🚇", "🚌", "🚕", "🚗", "🚲", "🛵", "✈️", "🚄", "🚆", "⛽", "🅿️", "🛺", "🚉", "🛴", "🚢"]
+  },
+  {
+    name: "娛樂",
+    emojis: ["🎮", "🎬", "🎵", "🎤", "🎨", "🎲", "🎟️", "🎳", "🏀", "⚽", "🎾", "🏊", "🎢", "🎭", "📚", "🎧", "🎷", "📺", "🎯"]
+  },
+  {
+    name: "居家",
+    emojis: ["🏠", "🛋️", "🛏️", "🚿", "🪑", "💡", "💧", "🔌", "🧹", "🧺", "🪴", "🔧", "🪟", "🚪", "🪞"]
+  },
+  {
+    name: "醫療",
+    emojis: ["💊", "🏥", "🩺", "💉", "🧪", "🦷", "👓", "🩹", "🧬", "🌡️"]
+  },
+  {
+    name: "工作",
+    emojis: ["💼", "📱", "💻", "📞", "✉️", "📧", "🖨️", "📅", "✏️", "📌", "📎", "🖇️", "📂", "📊"]
+  },
+  {
+    name: "旅遊",
+    emojis: ["✈️", "🗺️", "🏖️", "🏔️", "🚢", "🎒", "🏨", "🛂", "📷", "🌏", "🗽", "🗼", "🏝️", "⛺"]
+  },
+  {
+    name: "寵物",
+    emojis: ["🐶", "🐱", "🐰", "🐢", "🐠", "🦜", "🐹", "🐭", "🐦", "🐾"]
+  },
+  {
+    name: "收入",
+    emojis: ["💰", "💵", "💴", "💶", "💷", "🏦", "🪙", "💳", "📈", "🎁", "💎", "💸", "🤝", "↩️", "📊"]
+  },
+  {
+    name: "其他",
+    emojis: ["📌", "⭐", "❤️", "🎉", "🎂", "🌸", "🌈", "☂️", "🌳", "🌙", "⚡", "🔥", "✨", "🎯", "🧧", "🪄", "🎈", "🍀"]
+  }
+];
 
 const DEFAULT_ACCOUNTS = ["現金", "信用卡", "銀行"];
 
@@ -73,7 +140,19 @@ const els = {
   importJsonBtn: document.querySelector("#importJsonBtn"),
   importJsonInput: document.querySelector("#importJsonInput"),
   clearMonthBtn: document.querySelector("#clearMonthBtn"),
-  toastStack: document.querySelector("#toastStack")
+  toastStack: document.querySelector("#toastStack"),
+  tabBar: document.querySelector("#tabBar"),
+  fabBtn: document.querySelector("#fabBtn"),
+  numpad: document.querySelector("#numpad"),
+  numpadDisplay: document.querySelector("#numpadDisplay"),
+  pickCategoryIconBtn: document.querySelector("#pickCategoryIconBtn"),
+  pendingCategoryIcon: document.querySelector("#pendingCategoryIcon"),
+  iconPicker: document.querySelector("#iconPicker"),
+  iconPickerOverlay: document.querySelector("#iconPickerOverlay"),
+  iconPickerClose: document.querySelector("#iconPickerClose"),
+  iconPickerTabs: document.querySelector("#iconPickerTabs"),
+  iconPickerGrid: document.querySelector("#iconPickerGrid"),
+  iconPickerTitle: document.querySelector("#iconPickerTitle")
 };
 
 const state = {
@@ -83,11 +162,16 @@ const state = {
   budget: loadBudget(),
   recurring: loadRecurring(),
   prefs: loadPrefs(),
+  categoryIcons: loadCategoryIcons(),
   month: getCurrentMonth(),
   type: "all",
   account: "all",
   keyword: "",
-  editingId: null
+  editingId: null,
+  activeTab: DEFAULT_TAB,
+  pendingCategoryIcon: FALLBACK_ICON,
+  iconPickerContext: null,
+  numpadActive: false
 };
 
 migrateEntries();
@@ -190,6 +274,12 @@ function init() {
   } else if (typeof darkMq.addListener === "function") {
     darkMq.addListener(onSchemeChange);
   }
+
+  setupTabs();
+  setupFab();
+  setupNumpad();
+  setupIconPicker();
+  setupCategoryIconPicker();
 
   registerServiceWorker();
   render();
@@ -298,6 +388,10 @@ function onAddCustomCategory() {
   state.customCategories[type] = uniqueCategoryList(state.customCategories[type]);
   persistCustomCategories();
 
+  setCategoryIcon(type, category, state.pendingCategoryIcon || FALLBACK_ICON);
+  state.pendingCategoryIcon = FALLBACK_ICON;
+  if (els.pendingCategoryIcon) els.pendingCategoryIcon.textContent = FALLBACK_ICON;
+
   els.customCategoryInput.value = "";
   syncCategoryOptions(type, category);
   renderCustomCategoryList(type);
@@ -305,6 +399,23 @@ function onAddCustomCategory() {
 }
 
 function onCustomCategoryListAction(event) {
+  const iconBtn = event.target.closest("button[data-icon-category]");
+  if (iconBtn) {
+    const cat = iconBtn.dataset.iconCategory;
+    const type = iconBtn.dataset.iconType || els.typeInput.value;
+    openIconPicker({
+      title: `更改「${cat}」圖示`,
+      currentIcon: getCategoryIcon(type, cat),
+      onPick: (emoji) => {
+        setCategoryIcon(type, cat, emoji);
+        renderCustomCategoryList(type);
+        render();
+        showToast(`已更新「${cat}」圖示。`, { duration: 1600 });
+      }
+    });
+    return;
+  }
+
   const target = event.target.closest("button[data-category]");
   if (!target) return;
 
@@ -314,6 +425,10 @@ function onCustomCategoryListAction(event) {
 
   state.customCategories[type] = state.customCategories[type].filter((item) => item !== category);
   persistCustomCategories();
+  if (state.categoryIcons[type] && state.categoryIcons[type][category]) {
+    delete state.categoryIcons[type][category];
+    persistCategoryIcons();
+  }
   syncCategoryOptions(type);
   renderCustomCategoryList(type);
   updateHint(`已刪除「${category}」自訂分類。`, false);
@@ -395,9 +510,10 @@ function renderList(entries) {
     amount.textContent = `${signed}${formatCurrency(entry.amount)}`;
 
     const account = entry.account || DEFAULT_ACCOUNTS[0];
+    const icon = getCategoryIcon(entry.type, entry.category);
     const notePart = entry.note ? `・${entry.note}` : "";
     const recurringPart = entry.recurringId ? "・🔁" : "";
-    meta.textContent = `${formatDate(entry.date)}・${entry.category}・${account}${notePart}${recurringPart}`;
+    meta.textContent = `${formatDate(entry.date)}・${icon} ${entry.category}・${account}${notePart}${recurringPart}`;
 
     editBtn.dataset.id = entry.id;
     deleteBtn.dataset.id = entry.id;
@@ -490,7 +606,7 @@ function syncCategoryOptions(type, preferredCategory = "", targetSelect = els.ca
   for (const category of categories) {
     const option = document.createElement("option");
     option.value = category;
-    option.textContent = category;
+    option.textContent = `${getCategoryIcon(type, category)} ${category}`;
     targetSelect.appendChild(option);
   }
 
@@ -516,6 +632,14 @@ function renderCustomCategoryList(type) {
     const li = document.createElement("li");
     li.className = "chip-item";
 
+    const iconBtn = document.createElement("button");
+    iconBtn.type = "button";
+    iconBtn.className = "chip-icon";
+    iconBtn.dataset.iconCategory = category;
+    iconBtn.dataset.iconType = type;
+    iconBtn.textContent = getCategoryIcon(type, category);
+    iconBtn.setAttribute("aria-label", `更改 ${category} 的圖示`);
+
     const text = document.createElement("span");
     text.textContent = category;
 
@@ -526,6 +650,7 @@ function renderCustomCategoryList(type) {
     removeBtn.setAttribute("aria-label", `刪除 ${category}`);
     removeBtn.textContent = "×";
 
+    li.appendChild(iconBtn);
     li.appendChild(text);
     li.appendChild(removeBtn);
     fragment.appendChild(li);
@@ -916,6 +1041,8 @@ function startEditEntry(id) {
   const entry = state.entries.find((item) => item.id === id);
   if (!entry) return;
 
+  if (state.activeTab !== "record") setActiveTab("record");
+
   state.editingId = id;
   els.typeInput.value = entry.type;
   syncCategoryOptions(entry.type, entry.category);
@@ -1055,7 +1182,7 @@ function applyTheme() {
   const theme = loadEffectiveTheme();
   document.documentElement.dataset.theme = theme;
   if (els.themeToggleBtn) {
-    els.themeToggleBtn.textContent = theme === "dark" ? "☀️" : "🌙";
+    els.themeToggleBtn.textContent = theme === "dark" ? "☀️ 切換深淺色" : "🌙 切換深淺色";
     els.themeToggleBtn.setAttribute(
       "aria-label",
       theme === "dark" ? "切換為淺色模式" : "切換為深色模式"
@@ -1075,7 +1202,8 @@ function defaultPrefs() {
     theme: null,
     lastType: "expense",
     lastCategory: { expense: "", income: "" },
-    lastAccount: ""
+    lastAccount: "",
+    activeTab: DEFAULT_TAB
   };
 }
 
@@ -1094,7 +1222,8 @@ function loadPrefs() {
         expense: typeof lastCategory.expense === "string" ? lastCategory.expense : "",
         income: typeof lastCategory.income === "string" ? lastCategory.income : ""
       },
-      lastAccount: typeof parsed.lastAccount === "string" ? parsed.lastAccount : ""
+      lastAccount: typeof parsed.lastAccount === "string" ? parsed.lastAccount : "",
+      activeTab: TAB_NAMES.includes(parsed.activeTab) ? parsed.activeTab : DEFAULT_TAB
     };
   } catch {
     return defaultPrefs();
@@ -1133,11 +1262,12 @@ function applyLastAccountPref() {
 
 function exportJson() {
   const payload = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exportedAt: new Date().toISOString(),
     entries: state.entries,
     customCategories: state.customCategories,
     customAccounts: state.customAccounts,
+    categoryIcons: state.categoryIcons,
     budget: state.budget,
     recurring: state.recurring
   };
@@ -1219,6 +1349,26 @@ async function onImportJsonChange(event) {
         syncAccountOptions(els.recurringAccount);
         syncAccountFilterOptions();
         renderCustomAccountList();
+      }
+    }
+
+    if (data.categoryIcons && typeof data.categoryIcons === "object") {
+      let iconsTouched = false;
+      for (const t of ["expense", "income"]) {
+        const incoming = data.categoryIcons[t];
+        if (!incoming || typeof incoming !== "object") continue;
+        state.categoryIcons[t] = state.categoryIcons[t] || {};
+        for (const [name, icon] of Object.entries(incoming)) {
+          if (typeof icon === "string" && icon && !state.categoryIcons[t][name]) {
+            state.categoryIcons[t][name] = icon;
+            iconsTouched = true;
+          }
+        }
+      }
+      if (iconsTouched) {
+        persistCategoryIcons();
+        syncCategoryOptions(els.typeInput.value);
+        renderCustomCategoryList(els.typeInput.value);
       }
     }
 
@@ -2023,6 +2173,269 @@ function prevDay(dateStr) {
 
 function lastDayOfMonth(year, month) {
   return new Date(year, month + 1, 0).getDate();
+}
+
+// ─── Category Icons ──────────────────────────────────────
+
+function loadCategoryIcons() {
+  const blank = { expense: {}, income: {} };
+  try {
+    const raw = localStorage.getItem(CATEGORY_ICON_STORAGE_KEY);
+    if (!raw) return blank;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return blank;
+    return {
+      expense: parsed.expense && typeof parsed.expense === "object" ? { ...parsed.expense } : {},
+      income: parsed.income && typeof parsed.income === "object" ? { ...parsed.income } : {}
+    };
+  } catch {
+    return blank;
+  }
+}
+
+function persistCategoryIcons() {
+  localStorage.setItem(CATEGORY_ICON_STORAGE_KEY, JSON.stringify(state.categoryIcons));
+}
+
+function getCategoryIcon(type, name) {
+  const t = type === "income" ? "income" : "expense";
+  if (state.categoryIcons[t] && state.categoryIcons[t][name]) {
+    return state.categoryIcons[t][name];
+  }
+  if (DEFAULT_CATEGORY_ICONS[t] && DEFAULT_CATEGORY_ICONS[t][name]) {
+    return DEFAULT_CATEGORY_ICONS[t][name];
+  }
+  return FALLBACK_ICON;
+}
+
+function setCategoryIcon(type, name, icon) {
+  const t = type === "income" ? "income" : "expense";
+  if (!icon) return;
+  state.categoryIcons[t] = state.categoryIcons[t] || {};
+  state.categoryIcons[t][name] = icon;
+  persistCategoryIcons();
+}
+
+// ─── Tab navigation ──────────────────────────────────────
+
+function setupTabs() {
+  els.tabBar.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-tab-target]");
+    if (!btn) return;
+    setActiveTab(btn.dataset.tabTarget);
+  });
+  setActiveTab(state.prefs.activeTab || DEFAULT_TAB, { silent: true });
+}
+
+function setActiveTab(name, { silent = false } = {}) {
+  if (!TAB_NAMES.includes(name)) name = DEFAULT_TAB;
+  state.activeTab = name;
+  document.body.dataset.activeTab = name;
+  state.prefs.activeTab = name;
+  persistPrefs();
+
+  for (const btn of els.tabBar.querySelectorAll("button[data-tab-target]")) {
+    if (btn.dataset.tabTarget === name) {
+      btn.setAttribute("aria-current", "page");
+    } else {
+      btn.removeAttribute("aria-current");
+    }
+  }
+
+  if (state.numpadActive) closeNumpad();
+
+  if (!silent) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+// ─── FAB ─────────────────────────────────────────────────
+
+function setupFab() {
+  els.fabBtn.hidden = false;
+  els.fabBtn.addEventListener("click", () => {
+    setActiveTab("record");
+    setTimeout(() => {
+      els.amountInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      els.amountInput.focus();
+    }, 80);
+  });
+}
+
+// ─── Numpad ──────────────────────────────────────────────
+
+function setupNumpad() {
+  const mq = window.matchMedia ? window.matchMedia : null;
+  const isMobileViewport = mq ? mq("(max-width: 759px)").matches : false;
+  const isCoarse = mq ? mq("(pointer: coarse)").matches : false;
+  const useCustomKeypad = isCoarse && isMobileViewport;
+
+  if (!useCustomKeypad) {
+    els.amountInput.setAttribute("inputmode", "decimal");
+    els.amountInput.removeAttribute("readonly");
+    return;
+  }
+
+  els.amountInput.setAttribute("inputmode", "none");
+  els.amountInput.setAttribute("readonly", "readonly");
+
+  els.amountInput.addEventListener("focus", openNumpad);
+  els.amountInput.addEventListener("click", openNumpad);
+
+  els.numpad.addEventListener("click", onNumpadClick);
+
+  document.addEventListener("click", (event) => {
+    if (!state.numpadActive) return;
+    if (event.target.closest("#numpad")) return;
+    if (event.target.closest("#amountInput")) return;
+    if (event.target.closest("#fabBtn")) return;
+    closeNumpad();
+  }, true);
+}
+
+function openNumpad() {
+  if (state.numpadActive) return;
+  state.numpadActive = true;
+  els.numpad.hidden = false;
+  updateNumpadDisplay();
+}
+
+function closeNumpad() {
+  if (!state.numpadActive) return;
+  state.numpadActive = false;
+  els.numpad.hidden = true;
+}
+
+function onNumpadClick(event) {
+  const btn = event.target.closest("button[data-np]");
+  if (!btn) return;
+  const key = btn.dataset.np;
+
+  if (key === "done") {
+    closeNumpad();
+    return;
+  }
+  if (key === "clear") {
+    els.amountInput.value = "";
+    updateAmountPreview();
+    updateNumpadDisplay();
+    return;
+  }
+  if (key === "back") {
+    els.amountInput.value = els.amountInput.value.slice(0, -1);
+    updateAmountPreview();
+    updateNumpadDisplay();
+    return;
+  }
+  if (key === "eq") {
+    const val = evaluateAmount(els.amountInput.value);
+    if (Number.isFinite(val) && val > 0) {
+      els.amountInput.value = String(val);
+      updateAmountPreview();
+      updateNumpadDisplay();
+    }
+    return;
+  }
+
+  els.amountInput.value = `${els.amountInput.value || ""}${key}`;
+  updateAmountPreview();
+  updateNumpadDisplay();
+}
+
+function updateNumpadDisplay() {
+  if (!els.numpadDisplay) return;
+  const raw = els.amountInput.value || "0";
+  const result = evaluateAmount(raw);
+  if (Number.isFinite(result) && /[+\-*/]/.test(raw)) {
+    els.numpadDisplay.innerHTML = `${escapeHtml(raw)}<span class="np-eq-result">= ${escapeHtml(formatCurrency(result))}</span>`;
+  } else {
+    els.numpadDisplay.textContent = raw;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;"
+  );
+}
+
+// ─── Icon Picker ─────────────────────────────────────────
+
+function setupIconPicker() {
+  els.iconPickerClose.addEventListener("click", closeIconPicker);
+  els.iconPickerOverlay.addEventListener("click", closeIconPicker);
+  els.iconPickerTabs.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-group-index]");
+    if (!btn) return;
+    renderIconPickerGrid(Number(btn.dataset.groupIndex));
+    for (const tab of els.iconPickerTabs.querySelectorAll("button")) {
+      tab.classList.toggle("active", tab === btn);
+    }
+  });
+  els.iconPickerGrid.addEventListener("click", (event) => {
+    const cell = event.target.closest("button[data-emoji]");
+    if (!cell) return;
+    const emoji = cell.dataset.emoji;
+    if (state.iconPickerContext && typeof state.iconPickerContext.onPick === "function") {
+      state.iconPickerContext.onPick(emoji);
+    }
+    closeIconPicker();
+  });
+}
+
+function setupCategoryIconPicker() {
+  els.pickCategoryIconBtn.addEventListener("click", () => {
+    openIconPicker({
+      title: "選擇新分類圖示",
+      currentIcon: state.pendingCategoryIcon || FALLBACK_ICON,
+      onPick: (emoji) => {
+        state.pendingCategoryIcon = emoji;
+        if (els.pendingCategoryIcon) els.pendingCategoryIcon.textContent = emoji;
+      }
+    });
+  });
+}
+
+function openIconPicker({ title, currentIcon, onPick }) {
+  state.iconPickerContext = { onPick, currentIcon: currentIcon || FALLBACK_ICON };
+  els.iconPickerTitle.textContent = title || "選擇圖示";
+  els.iconPicker.hidden = false;
+  renderIconPickerTabs();
+  renderIconPickerGrid(0);
+}
+
+function closeIconPicker() {
+  els.iconPicker.hidden = true;
+  state.iconPickerContext = null;
+}
+
+function renderIconPickerTabs() {
+  els.iconPickerTabs.innerHTML = "";
+  for (let i = 0; i < EMOJI_GROUPS.length; i++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "icon-picker-tab" + (i === 0 ? " active" : "");
+    btn.dataset.groupIndex = String(i);
+    btn.textContent = EMOJI_GROUPS[i].name;
+    els.iconPickerTabs.appendChild(btn);
+  }
+}
+
+function renderIconPickerGrid(groupIndex) {
+  els.iconPickerGrid.innerHTML = "";
+  const group = EMOJI_GROUPS[groupIndex];
+  if (!group) return;
+  const current = state.iconPickerContext ? state.iconPickerContext.currentIcon : "";
+  const fragment = document.createDocumentFragment();
+  for (const emoji of group.emojis) {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "icon-picker-cell" + (emoji === current ? " selected" : "");
+    cell.dataset.emoji = emoji;
+    cell.textContent = emoji;
+    fragment.appendChild(cell);
+  }
+  els.iconPickerGrid.appendChild(fragment);
 }
 
 init();

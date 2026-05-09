@@ -1,8 +1,8 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2b7a78">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -14,10 +14,9 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body data-active-tab="record">
   <div class="app-shell">
     <header class="hero panel">
-      <button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="切換為深色模式">🌙</button>
       <p class="eyebrow">跨裝置記帳工具</p>
       <h1>日日記帳</h1>
       <p class="subtitle">同一套介面可在手機與電腦瀏覽器使用，並支援離線開啟。</p>
@@ -29,7 +28,7 @@
     </header>
 
     <main class="layout">
-      <section class="panel input-panel">
+      <section class="panel input-panel" data-tab-panel="record">
         <h2>新增一筆</h2>
         <form id="entryForm" class="entry-form">
           <label>
@@ -42,7 +41,7 @@
 
           <label>
             金額
-            <input id="amountInput" type="text" inputmode="decimal" autocomplete="off" placeholder="例如 150 或 75+85" required>
+            <input id="amountInput" type="text" inputmode="none" autocomplete="off" placeholder="例如 150 或 75+85" required>
             <span class="amount-preview" id="amountPreview" hidden></span>
           </label>
 
@@ -62,6 +61,9 @@
                 自訂分類
                 <input id="customCategoryInput" type="text" maxlength="12" placeholder="例如：咖啡、寵物">
               </label>
+              <button class="ghost-btn pick-icon-btn" id="pickCategoryIconBtn" type="button" aria-label="選擇分類圖示">
+                <span id="pendingCategoryIcon">📌</span>
+              </button>
               <button class="ghost-btn add-category-btn" id="addCategoryBtn" type="button">加入分類</button>
             </div>
             <ul id="customCategoryList" class="chip-list" aria-label="自訂分類清單"></ul>
@@ -94,7 +96,7 @@
         </form>
       </section>
 
-      <section class="panel summary-panel">
+      <section class="panel summary-panel" data-tab-panel="record">
         <h2>本月總覽</h2>
         <div class="stat-grid">
           <article class="stat-card">
@@ -111,34 +113,83 @@
           </article>
         </div>
 
-        <div class="budget-section">
+        <div class="budget-section budget-section-display">
           <div class="budget-head">
-            <label class="budget-input-label">
-              本月預算（支出）
-              <input id="budgetInput" type="number" inputmode="decimal" min="0" step="100" placeholder="例如 30000">
-            </label>
+            <span class="budget-input-label budget-display-label">本月預算進度</span>
             <span class="budget-status" id="budgetStatus">尚未設定</span>
           </div>
           <div class="budget-track">
             <div class="budget-bar" id="budgetBar"></div>
           </div>
         </div>
+      </section>
 
-        <div class="account-balances">
-          <h3 class="subhead">各帳戶結餘</h3>
-          <ul id="accountBalances" class="account-list"></ul>
+      <section class="panel list-panel" data-tab-panel="list">
+        <div class="panel-head">
+          <h2>交易紀錄</h2>
+          <div class="filters">
+            <label>
+              月份
+              <input id="monthFilter" type="month">
+            </label>
+            <label>
+              類型
+              <select id="typeFilter">
+                <option value="all">全部</option>
+                <option value="expense">僅支出</option>
+                <option value="income">僅收入</option>
+              </select>
+            </label>
+            <label>
+              帳戶
+              <select id="accountFilter">
+                <option value="all">全部帳戶</option>
+              </select>
+            </label>
+            <label class="search-field">
+              關鍵字
+              <input id="keywordFilter" type="search" placeholder="搜尋分類、帳戶或備註">
+            </label>
+          </div>
         </div>
+        <ul id="transactionList" class="transaction-list"></ul>
+      </section>
 
-        <div class="summary-actions">
-          <button class="ghost-btn" id="exportBtn" type="button">匯出 CSV</button>
-          <button class="ghost-btn" id="exportJsonBtn" type="button">備份 JSON</button>
-          <button class="ghost-btn" id="importJsonBtn" type="button">還原 JSON</button>
-          <input id="importJsonInput" type="file" accept=".json,application/json" hidden>
-          <button class="ghost-btn danger" id="clearMonthBtn" type="button">清空當月資料</button>
+      <section class="panel accounts-panel" data-tab-panel="list">
+        <h2>各帳戶結餘</h2>
+        <ul id="accountBalances" class="account-list"></ul>
+      </section>
+
+      <section class="panel trend-panel" data-tab-panel="chart">
+        <h2>月度趨勢</h2>
+        <p class="stats-subtitle">最近 6 個月收入與支出</p>
+        <div id="trendChart" class="trend-chart"></div>
+      </section>
+
+      <section class="panel stats-panel" data-tab-panel="chart">
+        <h2>分類占比</h2>
+        <p class="stats-subtitle">依當前篩選條件統計（支出）</p>
+        <div id="categoryChart" class="category-chart"></div>
+      </section>
+
+      <section class="panel report-panel" data-tab-panel="report">
+        <h2>本月報告</h2>
+        <p class="stats-subtitle">文字報告與精選洞察</p>
+        <div id="reportContent" class="report-content">
+          <p class="empty">📄 報告功能將在第二批更新中推出（本月 vs 上月、Top 5 支出、預算達成、固定收支佔比…）。</p>
         </div>
       </section>
 
-      <section class="panel recurring-panel">
+      <section class="panel settings-panel budget-settings-panel" data-tab-panel="settings">
+        <h2>預算設定</h2>
+        <label class="budget-input-label">
+          本月預算（支出）
+          <input id="budgetInput" type="number" inputmode="decimal" min="0" step="100" placeholder="例如 30000">
+        </label>
+        <p class="settings-hint">設定後即會於「記帳」頁顯示進度條。</p>
+      </section>
+
+      <section class="panel recurring-panel" data-tab-panel="settings">
         <div class="panel-head">
           <h2>固定收支</h2>
           <button class="ghost-btn" id="toggleRecurringFormBtn" type="button">+ 新增規則</button>
@@ -203,49 +254,75 @@
         </form>
       </section>
 
-      <section class="panel list-panel">
-        <div class="panel-head">
-          <h2>交易紀錄</h2>
-          <div class="filters">
-            <label>
-              月份
-              <input id="monthFilter" type="month">
-            </label>
-            <label>
-              類型
-              <select id="typeFilter">
-                <option value="all">全部</option>
-                <option value="expense">僅支出</option>
-                <option value="income">僅收入</option>
-              </select>
-            </label>
-            <label>
-              帳戶
-              <select id="accountFilter">
-                <option value="all">全部帳戶</option>
-              </select>
-            </label>
-            <label class="search-field">
-              關鍵字
-              <input id="keywordFilter" type="search" placeholder="搜尋分類、帳戶或備註">
-            </label>
-          </div>
+      <section class="panel actions-panel" data-tab-panel="settings">
+        <h2>外觀與資料</h2>
+        <div class="settings-actions">
+          <button class="ghost-btn" id="themeToggleBtn" type="button" aria-label="切換為深色模式">🌙 切換深淺色</button>
+          <button class="ghost-btn" id="exportBtn" type="button">匯出 CSV</button>
+          <button class="ghost-btn" id="exportJsonBtn" type="button">備份 JSON</button>
+          <button class="ghost-btn" id="importJsonBtn" type="button">還原 JSON</button>
+          <input id="importJsonInput" type="file" accept=".json,application/json" hidden>
+          <button class="ghost-btn danger" id="clearMonthBtn" type="button">清空當月資料</button>
         </div>
-        <ul id="transactionList" class="transaction-list"></ul>
-      </section>
-
-      <section class="panel trend-panel">
-        <h2>月度趨勢</h2>
-        <p class="stats-subtitle">最近 6 個月收入與支出</p>
-        <div id="trendChart" class="trend-chart"></div>
-      </section>
-
-      <section class="panel stats-panel">
-        <h2>分類占比</h2>
-        <p class="stats-subtitle">依當前篩選條件統計（支出）</p>
-        <div id="categoryChart" class="category-chart"></div>
       </section>
     </main>
+  </div>
+
+  <button class="fab" id="fabBtn" type="button" aria-label="新增記帳" hidden>+</button>
+
+  <nav class="tab-bar" id="tabBar" aria-label="分頁">
+    <button type="button" class="tab-btn" data-tab-target="record" aria-current="page">
+      <span class="tab-icon" aria-hidden="true">📝</span><span class="tab-label">記帳</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab-target="list">
+      <span class="tab-icon" aria-hidden="true">📋</span><span class="tab-label">明細</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab-target="chart">
+      <span class="tab-icon" aria-hidden="true">📊</span><span class="tab-label">圖表</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab-target="report">
+      <span class="tab-icon" aria-hidden="true">📄</span><span class="tab-label">報告</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab-target="settings">
+      <span class="tab-icon" aria-hidden="true">⚙️</span><span class="tab-label">設定</span>
+    </button>
+  </nav>
+
+  <div class="numpad" id="numpad" hidden role="dialog" aria-label="金額輸入鍵盤">
+    <div class="numpad-display" id="numpadDisplay">0</div>
+    <div class="numpad-grid">
+      <button type="button" class="np-key" data-np="7">7</button>
+      <button type="button" class="np-key" data-np="8">8</button>
+      <button type="button" class="np-key" data-np="9">9</button>
+      <button type="button" class="np-key np-op" data-np="/">÷</button>
+      <button type="button" class="np-key" data-np="4">4</button>
+      <button type="button" class="np-key" data-np="5">5</button>
+      <button type="button" class="np-key" data-np="6">6</button>
+      <button type="button" class="np-key np-op" data-np="*">×</button>
+      <button type="button" class="np-key" data-np="1">1</button>
+      <button type="button" class="np-key" data-np="2">2</button>
+      <button type="button" class="np-key" data-np="3">3</button>
+      <button type="button" class="np-key np-op" data-np="-">−</button>
+      <button type="button" class="np-key" data-np=".">.</button>
+      <button type="button" class="np-key" data-np="0">0</button>
+      <button type="button" class="np-key np-back" data-np="back" aria-label="刪除">⌫</button>
+      <button type="button" class="np-key np-op" data-np="+">+</button>
+      <button type="button" class="np-key np-clear" data-np="clear">清除</button>
+      <button type="button" class="np-key np-eq" data-np="eq">=</button>
+      <button type="button" class="np-key np-done" data-np="done">完成</button>
+    </div>
+  </div>
+
+  <div class="icon-picker" id="iconPicker" hidden role="dialog" aria-label="選擇圖示" aria-modal="true">
+    <div class="icon-picker-overlay" id="iconPickerOverlay"></div>
+    <div class="icon-picker-sheet">
+      <header class="icon-picker-head">
+        <h3 id="iconPickerTitle">選擇分類圖示</h3>
+        <button type="button" class="ghost-btn" id="iconPickerClose" aria-label="關閉">×</button>
+      </header>
+      <nav class="icon-picker-tabs" id="iconPickerTabs" aria-label="圖示分組"></nav>
+      <div class="icon-picker-grid" id="iconPickerGrid" role="listbox"></div>
+    </div>
   </div>
 
   <template id="transactionItemTemplate">
@@ -269,4 +346,3 @@
   <script src="app.js" defer></script>
 </body>
 </html>
-
