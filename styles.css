@@ -167,6 +167,10 @@ h1 {
   grid-template-columns: 1fr;
 }
 
+.desktop-nav {
+  display: none;
+}
+
 section h2 {
   margin: 0 0 0.95rem;
   font-size: 1.15rem;
@@ -948,6 +952,47 @@ select:focus {
     margin-top: 1.5rem;
   }
 
+  .desktop-nav {
+    position: sticky;
+    top: 0.75rem;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin: -0.1rem 0 1rem;
+    padding: 0.45rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--card);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 26px rgba(31, 42, 55, 0.1);
+  }
+
+  .desktop-nav a {
+    min-width: 0;
+    border-radius: 10px;
+    padding: 0.52rem 0.6rem;
+    color: var(--ink-700);
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 800;
+    white-space: nowrap;
+    transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  }
+
+  .desktop-nav a:hover,
+  .desktop-nav a:focus-visible {
+    color: var(--brand-700);
+    background: rgba(43, 122, 120, 0.1);
+    transform: translateY(-1px);
+    outline: none;
+  }
+
+  .panel[id] {
+    scroll-margin-top: 5rem;
+  }
+
   .layout {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
@@ -1634,6 +1679,10 @@ select:focus {
     margin: 0.42rem auto 0.7rem;
   }
 
+  .desktop-nav {
+    display: none;
+  }
+
   .layout {
     gap: 0.5rem;
   }
@@ -1999,6 +2048,10 @@ select:focus {
     left: 0;
     right: 0;
     bottom: 0;
+  }
+
+  .desktop-nav {
+    display: none !important;
   }
 
   body:not([data-active-tab="record"]) .fab {
