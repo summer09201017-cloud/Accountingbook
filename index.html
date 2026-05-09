@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="日日記帳">
   <title>日日記帳</title>
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -30,6 +31,20 @@
     <main class="layout">
       <section class="panel input-panel" data-tab-panel="record">
         <h2>新增一筆</h2>
+        <div class="quick-templates" id="quickTemplates" aria-label="常用記帳模板">
+          <button class="template-btn" type="button" data-template="breakfast">
+            <span>🍳 早餐</span>
+            <small>$60・飲食</small>
+          </button>
+          <button class="template-btn" type="button" data-template="transit">
+            <span>🚇 捷運</span>
+            <small>$30・交通</small>
+          </button>
+          <button class="template-btn" type="button" data-template="salary">
+            <span>💰 薪資</span>
+            <small>$30,000・收入</small>
+          </button>
+        </div>
         <form id="entryForm" class="entry-form">
           <label>
             類型
@@ -127,6 +142,11 @@
       <section class="panel list-panel" data-tab-panel="list">
         <div class="panel-head">
           <h2>交易紀錄</h2>
+          <div class="quick-ranges" aria-label="快速篩選">
+            <button class="quick-range-btn" type="button" data-quick-range="today">今日</button>
+            <button class="quick-range-btn" type="button" data-quick-range="week">本週</button>
+            <button class="quick-range-btn" type="button" data-quick-range="month">本月</button>
+          </div>
           <div class="filters">
             <label>
               月份
@@ -175,9 +195,7 @@
       <section class="panel report-panel" data-tab-panel="report">
         <h2>本月報告</h2>
         <p class="stats-subtitle">文字報告與精選洞察</p>
-        <div id="reportContent" class="report-content">
-          <p class="empty">📄 報告功能將在第二批更新中推出（本月 vs 上月、Top 5 支出、預算達成、固定收支佔比…）。</p>
-        </div>
+        <div id="reportContent" class="report-content"></div>
       </section>
 
       <section class="panel settings-panel budget-settings-panel" data-tab-panel="settings">

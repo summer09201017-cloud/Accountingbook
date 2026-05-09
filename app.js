@@ -83,6 +83,30 @@ const EMOJI_GROUPS = [
 
 const DEFAULT_ACCOUNTS = ["現金", "信用卡", "銀行"];
 
+const QUICK_ENTRY_TEMPLATES = {
+  breakfast: {
+    type: "expense",
+    amount: 60,
+    category: "飲食",
+    account: "現金",
+    note: "早餐"
+  },
+  transit: {
+    type: "expense",
+    amount: 30,
+    category: "交通",
+    account: "現金",
+    note: "捷運"
+  },
+  salary: {
+    type: "income",
+    amount: 30000,
+    category: "薪資",
+    account: "銀行",
+    note: "薪資"
+  }
+};
+
 const els = {
   currentMonthText: document.querySelector("#currentMonthText"),
   installAppBtn: document.querySelector("#installAppBtn"),
@@ -92,6 +116,7 @@ const els = {
   typeInput: document.querySelector("#typeInput"),
   amountInput: document.querySelector("#amountInput"),
   amountPreview: document.querySelector("#amountPreview"),
+  quickTemplates: document.querySelector("#quickTemplates"),
   categoryInput: document.querySelector("#categoryInput"),
   accountInput: document.querySelector("#accountInput"),
   customCategoryInput: document.querySelector("#customCategoryInput"),
@@ -116,10 +141,12 @@ const els = {
   typeFilter: document.querySelector("#typeFilter"),
   accountFilter: document.querySelector("#accountFilter"),
   keywordFilter: document.querySelector("#keywordFilter"),
+  quickRangeBtns: document.querySelectorAll("[data-quick-range]"),
   transactionList: document.querySelector("#transactionList"),
   transactionItemTemplate: document.querySelector("#transactionItemTemplate"),
   categoryChart: document.querySelector("#categoryChart"),
   trendChart: document.querySelector("#trendChart"),
+  reportContent: document.querySelector("#reportContent"),
   toggleRecurringFormBtn: document.querySelector("#toggleRecurringFormBtn"),
   recurringList: document.querySelector("#recurringList"),
   recurringForm: document.querySelector("#recurringForm"),
@@ -164,6 +191,7 @@ const state = {
   prefs: loadPrefs(),
   categoryIcons: loadCategoryIcons(),
   month: getCurrentMonth(),
+  quickRange: "month",
   type: "all",
   account: "all",
   keyword: "",
@@ -208,6 +236,7 @@ function init() {
 
   els.amountInput.addEventListener("input", updateAmountPreview);
   els.cancelEditBtn.addEventListener("click", cancelEdit);
+  els.quickTemplates.addEventListener("click", onQuickTemplateClick);
 
   els.addCategoryBtn.addEventListener("click", onAddCustomCategory);
   els.customCategoryInput.addEventListener("keydown", (event) => {
@@ -236,6 +265,7 @@ function init() {
 
   els.monthFilter.addEventListener("input", (event) => {
     state.month = event.target.value;
+    state.quickRange = "customMonth";
     render();
   });
 
@@ -253,6 +283,10 @@ function init() {
     state.keyword = event.target.value.trim().toLowerCase();
     render();
   });
+
+  for (const btn of els.quickRangeBtns) {
+    btn.addEventListener("click", onQuickRangeClick);
+  }
 
   els.transactionList.addEventListener("click", onListAction);
   els.exportBtn.addEventListener("click", exportCsv);
@@ -364,6 +398,41 @@ function onCreateEntry(event) {
   showToast("已加入一筆記帳。");
 }
 
+function onQuickTemplateClick(event) {
+  const btn = event.target.closest("button[data-template]");
+  if (!btn) return;
+
+  const template = QUICK_ENTRY_TEMPLATES[btn.dataset.template];
+  if (!template) return;
+
+  if (state.editingId) {
+    exitEditMode();
+  }
+
+  els.typeInput.value = template.type;
+  syncCategoryOptions(template.type, template.category);
+  renderCustomCategoryList(template.type);
+
+  const categories = getAllCategories(template.type);
+  if (categories.includes(template.category)) {
+    els.categoryInput.value = template.category;
+  }
+
+  syncAccountOptions(els.accountInput);
+  const accounts = getAllAccounts();
+  els.accountInput.value = accounts.includes(template.account) ? template.account : DEFAULT_ACCOUNTS[0];
+
+  els.amountInput.value = String(template.amount);
+  els.dateInput.value = toDateInputValue(new Date());
+  els.noteInput.value = template.note;
+  updateAmountPreview();
+  updateHint(`已套用「${template.note}」模板，可直接調整後送出。`, false);
+
+  if (state.numpadActive) {
+    updateNumpadDisplay();
+  }
+}
+
 function onAddCustomCategory() {
   const type = els.typeInput.value;
   const category = normalizeCategoryName(els.customCategoryInput.value);
@@ -449,19 +518,26 @@ function onListAction(event) {
 
 function render() {
   const filtered = getFilteredEntries();
+  updateQuickRangeButtons();
   renderList(filtered);
   renderTotals(filtered);
   renderCategoryChart(filtered);
   renderBudget();
   renderAccountBalances();
   renderTrendChart();
+  renderReport();
   renderRecurringList();
 }
 
 function getFilteredEntries() {
+  const range = getQuickRangeBounds();
   return state.entries
     .filter((entry) => {
-      if (state.month && !entry.date.startsWith(state.month)) return false;
+      if (range) {
+        if (entry.date < range.start || entry.date > range.end) return false;
+      } else if (state.month && !entry.date.startsWith(state.month)) {
+        return false;
+      }
       if (state.type !== "all" && entry.type !== state.type) return false;
       if (state.account !== "all" && (entry.account || DEFAULT_ACCOUNTS[0]) !== state.account) return false;
 
@@ -476,6 +552,62 @@ function getFilteredEntries() {
       if (a.date !== b.date) return b.date.localeCompare(a.date);
       return b.createdAt - a.createdAt;
     });
+}
+
+function getQuickRangeBounds() {
+  if (state.quickRange === "today") {
+    const today = toDateInputValue(new Date());
+    return { start: today, end: today };
+  }
+
+  if (state.quickRange === "week") {
+    return getCurrentWeekRange();
+  }
+
+  return null;
+}
+
+function getCurrentWeekRange() {
+  const now = new Date();
+  const start = new Date(now);
+  const day = start.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + offset);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return {
+    start: toDateInputValue(start),
+    end: toDateInputValue(end)
+  };
+}
+
+function onQuickRangeClick(event) {
+  const btn = event.target.closest("button[data-quick-range]");
+  if (!btn) return;
+
+  const range = btn.dataset.quickRange;
+  if (!["today", "week", "month"].includes(range)) return;
+
+  state.quickRange = range;
+  if (range === "month") {
+    state.month = getCurrentMonth();
+    els.monthFilter.value = state.month;
+  }
+  render();
+}
+
+function updateQuickRangeButtons() {
+  for (const btn of els.quickRangeBtns) {
+    const isActive = btn.dataset.quickRange === state.quickRange;
+    btn.classList.toggle("active", isActive);
+    if (isActive) {
+      btn.setAttribute("aria-current", "true");
+    } else {
+      btn.removeAttribute("aria-current");
+    }
+  }
 }
 
 function renderList(entries) {
@@ -596,6 +728,245 @@ function renderCategoryChart(entries) {
     row.appendChild(track);
     els.categoryChart.appendChild(row);
   }
+}
+
+function renderReport() {
+  const month = state.month || getCurrentMonth();
+  const previousMonth = shiftMonth(month, -1);
+  const current = getMonthSummary(month);
+  const previous = getMonthSummary(previousMonth);
+
+  els.reportContent.innerHTML = "";
+
+  if (!current.entries.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = `${formatMonthLabel(month)} 尚無資料；新增幾筆後，這裡會整理本月 vs 上月、Top 5 支出與預算狀態。`;
+    els.reportContent.appendChild(empty);
+  }
+
+  const summaryGrid = document.createElement("div");
+  summaryGrid.className = "report-summary-grid";
+  summaryGrid.appendChild(createReportMetric("收入", formatCurrency(current.income), describeDelta(current.income, previous.income, "收入")));
+  summaryGrid.appendChild(createReportMetric("支出", formatCurrency(current.expense), describeDelta(current.expense, previous.expense, "支出", true)));
+  summaryGrid.appendChild(createReportMetric("結餘", formatCurrency(current.balance), describeDelta(current.balance, previous.balance, "結餘")));
+  els.reportContent.appendChild(summaryGrid);
+
+  const comparisonCard = createReportCard("本月 vs 上月", `${formatMonthLabel(month)} / ${formatMonthLabel(previousMonth)}`);
+  const comparisonList = document.createElement("ul");
+  comparisonList.className = "report-list";
+  comparisonList.appendChild(createReportListItem("收入變化", describeDelta(current.income, previous.income, "收入").text));
+  comparisonList.appendChild(createReportListItem("支出變化", describeDelta(current.expense, previous.expense, "支出", true).text));
+  comparisonList.appendChild(createReportListItem("結餘變化", describeDelta(current.balance, previous.balance, "結餘").text));
+  comparisonCard.appendChild(comparisonList);
+  els.reportContent.appendChild(comparisonCard);
+
+  const topCard = createReportCard("Top 5 支出", "依分類統計");
+  const topCategories = getTopExpenseCategories(current.entries, 5);
+  if (!topCategories.length) {
+    const empty = document.createElement("p");
+    empty.className = "report-note";
+    empty.textContent = "本月尚無支出分類可排行。";
+    topCard.appendChild(empty);
+  } else {
+    const topList = document.createElement("div");
+    topList.className = "report-top-list";
+    for (const item of topCategories) {
+      const row = document.createElement("div");
+      row.className = "report-top-row";
+
+      const head = document.createElement("div");
+      head.className = "report-top-head";
+
+      const label = document.createElement("span");
+      label.textContent = `${getCategoryIcon("expense", item.category)} ${item.category}`;
+
+      const value = document.createElement("span");
+      value.textContent = `${formatCurrency(item.total)}・${item.ratio.toFixed(0)}%`;
+
+      head.appendChild(label);
+      head.appendChild(value);
+
+      const track = document.createElement("div");
+      track.className = "report-top-track";
+      const bar = document.createElement("div");
+      bar.className = "report-top-bar";
+      bar.style.width = `${Math.max(item.ratio, 4).toFixed(2)}%`;
+      track.appendChild(bar);
+
+      row.appendChild(head);
+      row.appendChild(track);
+      topList.appendChild(row);
+    }
+    topCard.appendChild(topList);
+  }
+  els.reportContent.appendChild(topCard);
+
+  const budgetCard = createReportCard("預算狀態", "本月支出預算");
+  budgetCard.appendChild(createBudgetReportBody(current.expense));
+  els.reportContent.appendChild(budgetCard);
+}
+
+function createReportMetric(label, value, delta) {
+  const article = document.createElement("article");
+  article.className = "report-metric";
+  if (delta.tone) article.classList.add(delta.tone);
+
+  const title = document.createElement("span");
+  title.textContent = label;
+
+  const strong = document.createElement("strong");
+  strong.textContent = value;
+
+  const small = document.createElement("small");
+  small.textContent = delta.text;
+
+  article.appendChild(title);
+  article.appendChild(strong);
+  article.appendChild(small);
+  return article;
+}
+
+function createReportCard(title, subtitle) {
+  const article = document.createElement("article");
+  article.className = "report-card";
+
+  const head = document.createElement("div");
+  head.className = "report-card-head";
+
+  const h3 = document.createElement("h3");
+  h3.textContent = title;
+
+  const p = document.createElement("p");
+  p.textContent = subtitle;
+
+  head.appendChild(h3);
+  head.appendChild(p);
+  article.appendChild(head);
+  return article;
+}
+
+function createReportListItem(label, value) {
+  const li = document.createElement("li");
+
+  const key = document.createElement("span");
+  key.textContent = label;
+
+  const val = document.createElement("strong");
+  val.textContent = value;
+
+  li.appendChild(key);
+  li.appendChild(val);
+  return li;
+}
+
+function createBudgetReportBody(spent) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "report-budget";
+
+  const budget = state.budget.monthlyExpense || 0;
+  const status = document.createElement("strong");
+  const detail = document.createElement("span");
+  const track = document.createElement("div");
+  track.className = "report-top-track";
+  const bar = document.createElement("div");
+  bar.className = "report-top-bar";
+
+  if (!budget || budget <= 0) {
+    status.textContent = "尚未設定";
+    detail.textContent = "到「設定」頁輸入本月預算後，報告會自動追蹤剩餘金額。";
+    bar.style.width = "0%";
+  } else {
+    const ratio = spent / budget;
+    const pct = Math.min(ratio * 100, 100);
+    const remaining = budget - spent;
+    bar.style.width = `${pct.toFixed(2)}%`;
+    if (ratio >= 1) {
+      wrapper.classList.add("over");
+      bar.classList.add("over");
+      status.textContent = `已超支 ${formatCurrency(spent - budget)}`;
+    } else if (ratio >= 0.8) {
+      wrapper.classList.add("warn");
+      bar.classList.add("warn");
+      status.textContent = `已用 ${(ratio * 100).toFixed(0)}%`;
+    } else {
+      wrapper.classList.add("safe");
+      status.textContent = `已用 ${(ratio * 100).toFixed(0)}%`;
+    }
+    detail.textContent = `預算 ${formatCurrency(budget)}，目前支出 ${formatCurrency(spent)}，剩餘 ${formatCurrency(remaining)}。`;
+  }
+
+  track.appendChild(bar);
+  wrapper.appendChild(status);
+  wrapper.appendChild(detail);
+  wrapper.appendChild(track);
+  return wrapper;
+}
+
+function getMonthSummary(month) {
+  const entries = state.entries.filter((entry) => entry.date.startsWith(month));
+  let income = 0;
+  let expense = 0;
+  for (const entry of entries) {
+    if (entry.type === "income") {
+      income += entry.amount;
+    } else {
+      expense += entry.amount;
+    }
+  }
+  return {
+    entries,
+    income,
+    expense,
+    balance: income - expense
+  };
+}
+
+function getTopExpenseCategories(entries, limit) {
+  const totals = new Map();
+  let totalExpense = 0;
+  for (const entry of entries) {
+    if (entry.type !== "expense") continue;
+    const current = totals.get(entry.category) || 0;
+    totals.set(entry.category, current + entry.amount);
+    totalExpense += entry.amount;
+  }
+
+  return [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([category, total]) => ({
+      category,
+      total,
+      ratio: totalExpense > 0 ? (total / totalExpense) * 100 : 0
+    }));
+}
+
+function describeDelta(current, previous, label, lowerIsBetter = false) {
+  const diff = current - previous;
+  if (diff === 0) {
+    return { text: `與上月持平`, tone: "" };
+  }
+
+  const abs = Math.abs(diff);
+  const percent = previous > 0 ? `（${((abs / previous) * 100).toFixed(0)}%）` : "";
+  const verb = diff > 0 ? "增加" : "減少";
+  const isGood = lowerIsBetter ? diff < 0 : diff > 0;
+  return {
+    text: `${label}${verb} ${formatCurrency(abs)}${percent}`,
+    tone: isGood ? "safe" : "warn"
+  };
+}
+
+function shiftMonth(month, delta) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(year, monthNumber - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(month) {
+  const [year, monthNumber] = month.split("-");
+  return `${year} 年 ${Number(monthNumber)} 月`;
 }
 
 function syncCategoryOptions(type, preferredCategory = "", targetSelect = els.categoryInput) {
