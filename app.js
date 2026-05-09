@@ -14,8 +14,16 @@ const FALLBACK_ICON = "📌";
 let deferredInstallPrompt = null;
 
 const DEFAULT_CATEGORY_MAP = {
-  expense: ["飲食", "交通", "居家", "娛樂", "醫療", "購物", "其他"],
-  income: ["薪資", "獎金", "投資", "退款", "兼職", "其他"]
+  expense: [
+    "飲食", "交通", "居家", "娛樂", "醫療", "購物",
+    "教育", "旅遊", "通訊", "訂閱", "寵物", "美容",
+    "保險", "稅費", "禮物", "孝親", "捐贈", "運動",
+    "水電瓦斯", "其他"
+  ],
+  income: [
+    "薪資", "獎金", "投資", "退款", "兼職",
+    "紅包", "利息", "租金", "禮金", "其他"
+  ]
 };
 
 const DEFAULT_CATEGORY_ICONS = {
@@ -26,15 +34,32 @@ const DEFAULT_CATEGORY_ICONS = {
     "娛樂": "🎮",
     "醫療": "💊",
     "購物": "🛍️",
-    "其他": "📌"
+    "教育": "📚",
+    "旅遊": "✈️",
+    "通訊": "📱",
+    "訂閱": "🔔",
+    "寵物": "🐾",
+    "美容": "💅",
+    "保險": "🛡️",
+    "稅費": "🧾",
+    "禮物": "🎁",
+    "孝親": "👨‍👩‍👧",
+    "捐贈": "💝",
+    "運動": "🏃",
+    "水電瓦斯": "💡",
+    "其他": "📦"
   },
   income: {
     "薪資": "💰",
-    "獎金": "🎁",
+    "獎金": "🏆",
     "投資": "📈",
     "退款": "↩️",
     "兼職": "💼",
-    "其他": "📌"
+    "紅包": "🧧",
+    "利息": "🏦",
+    "租金": "🏘️",
+    "禮金": "💌",
+    "其他": "📦"
   }
 };
 
@@ -179,7 +204,11 @@ const els = {
   iconPickerClose: document.querySelector("#iconPickerClose"),
   iconPickerTabs: document.querySelector("#iconPickerTabs"),
   iconPickerGrid: document.querySelector("#iconPickerGrid"),
-  iconPickerTitle: document.querySelector("#iconPickerTitle")
+  iconPickerTitle: document.querySelector("#iconPickerTitle"),
+  calendarHeatmap: document.querySelector("#calendarHeatmap"),
+  calendarStatus: document.querySelector("#calendarStatus"),
+  calendarStatusText: document.querySelector("#calendarStatusText"),
+  calendarStatusClear: document.querySelector("#calendarStatusClear")
 };
 
 const state = {
@@ -195,6 +224,7 @@ const state = {
   type: "all",
   account: "all",
   keyword: "",
+  specificDay: null,
   editingId: null,
   activeTab: DEFAULT_TAB,
   pendingCategoryIcon: FALLBACK_ICON,
@@ -266,6 +296,7 @@ function init() {
   els.monthFilter.addEventListener("input", (event) => {
     state.month = event.target.value;
     state.quickRange = "customMonth";
+    state.specificDay = null;
     render();
   });
 
@@ -288,6 +319,13 @@ function init() {
     btn.addEventListener("click", onQuickRangeClick);
   }
 
+  if (els.calendarHeatmap) {
+    els.calendarHeatmap.addEventListener("click", onCalendarCellClick);
+  }
+  if (els.calendarStatusClear) {
+    els.calendarStatusClear.addEventListener("click", clearCalendarSpecificDay);
+  }
+
   els.transactionList.addEventListener("click", onListAction);
   els.exportBtn.addEventListener("click", exportCsv);
   els.exportJsonBtn.addEventListener("click", exportJson);
@@ -307,6 +345,14 @@ function init() {
     darkMq.addEventListener("change", onSchemeChange);
   } else if (typeof darkMq.addListener === "function") {
     darkMq.addListener(onSchemeChange);
+  }
+
+  const narrowMq = window.matchMedia("(max-width: 759px)");
+  const onNarrowChange = () => renderTrendChart();
+  if (typeof narrowMq.addEventListener === "function") {
+    narrowMq.addEventListener("change", onNarrowChange);
+  } else if (typeof narrowMq.addListener === "function") {
+    narrowMq.addListener(onNarrowChange);
   }
 
   setupTabs();
@@ -525,6 +571,8 @@ function render() {
   renderBudget();
   renderAccountBalances();
   renderTrendChart();
+  renderCalendarHeatmap();
+  renderCalendarStatus();
   renderReport();
   renderRecurringList();
 }
@@ -555,6 +603,10 @@ function getFilteredEntries() {
 }
 
 function getQuickRangeBounds() {
+  if (state.specificDay) {
+    return { start: state.specificDay, end: state.specificDay };
+  }
+
   if (state.quickRange === "today") {
     const today = toDateInputValue(new Date());
     return { start: today, end: today };
@@ -590,6 +642,7 @@ function onQuickRangeClick(event) {
   const range = btn.dataset.quickRange;
   if (!["today", "week", "month"].includes(range)) return;
 
+  state.specificDay = null;
   state.quickRange = range;
   if (range === "month") {
     state.month = getCurrentMonth();
@@ -708,7 +761,7 @@ function renderCategoryChart(entries) {
     head.className = "category-row-head";
 
     const label = document.createElement("span");
-    label.textContent = category;
+    label.textContent = `${getCategoryIcon("expense", category)} ${category}`;
 
     const value = document.createElement("span");
     value.textContent = `${formatCurrency(total)} (${ratio.toFixed(1)}%)`;
@@ -1422,7 +1475,7 @@ function startEditEntry(id) {
   if (![...els.categoryInput.options].some((opt) => opt.value === entry.category)) {
     const opt = document.createElement("option");
     opt.value = entry.category;
-    opt.textContent = entry.category;
+    opt.textContent = `${getCategoryIcon(entry.type, entry.category)} ${entry.category}`;
     els.categoryInput.appendChild(opt);
   }
   els.categoryInput.value = entry.category;
@@ -2073,6 +2126,121 @@ function renderAccountBalances() {
   els.accountBalances.appendChild(fragment);
 }
 
+// ─── Calendar Heatmap ────────────────────────────────────────
+
+function renderCalendarHeatmap() {
+  if (!els.calendarHeatmap) return;
+
+  const month = state.month || getCurrentMonth();
+  const [year, mon] = month.split("-").map(Number);
+  if (!year || !mon) {
+    els.calendarHeatmap.innerHTML = "";
+    return;
+  }
+
+  const firstWeekday = new Date(year, mon - 1, 1).getDay();
+  const daysInMonth = new Date(year, mon, 0).getDate();
+  const today = toDateInputValue(new Date());
+
+  const dailyTotals = new Map();
+  for (const entry of state.entries) {
+    if (entry.type !== "expense") continue;
+    if (!entry.date.startsWith(month)) continue;
+    dailyTotals.set(entry.date, (dailyTotals.get(entry.date) || 0) + entry.amount);
+  }
+  const max = Math.max(0, ...dailyTotals.values());
+
+  els.calendarHeatmap.innerHTML = "";
+
+  const dowRow = document.createElement("div");
+  dowRow.className = "calendar-grid calendar-dow";
+  for (const dow of ["日", "一", "二", "三", "四", "五", "六"]) {
+    const cell = document.createElement("div");
+    cell.className = "calendar-dow-cell";
+    cell.textContent = dow;
+    dowRow.appendChild(cell);
+  }
+  els.calendarHeatmap.appendChild(dowRow);
+
+  const grid = document.createElement("div");
+  grid.className = "calendar-grid calendar-days";
+
+  for (let i = 0; i < firstWeekday; i++) {
+    const cell = document.createElement("div");
+    cell.className = "calendar-cell calendar-blank";
+    grid.appendChild(cell);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${month}-${String(d).padStart(2, "0")}`;
+    const total = dailyTotals.get(dateStr) || 0;
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "calendar-cell";
+    cell.dataset.date = dateStr;
+
+    let level = 0;
+    if (max > 0 && total > 0) {
+      const ratio = total / max;
+      if (ratio >= 0.75) level = 4;
+      else if (ratio >= 0.5) level = 3;
+      else if (ratio >= 0.25) level = 2;
+      else level = 1;
+    }
+    cell.dataset.level = String(level);
+
+    if (dateStr === today) cell.classList.add("calendar-today");
+    if (state.specificDay === dateStr) cell.classList.add("calendar-selected");
+
+    const dayLabel = document.createElement("span");
+    dayLabel.className = "calendar-day-num";
+    dayLabel.textContent = String(d);
+    cell.appendChild(dayLabel);
+
+    if (total > 0) {
+      const amt = document.createElement("span");
+      amt.className = "calendar-day-amount";
+      amt.textContent = formatCompact(total);
+      cell.appendChild(amt);
+      cell.title = `${dateStr} 支出 ${formatCurrency(total)}`;
+    } else {
+      cell.title = `${dateStr}（無支出）`;
+    }
+
+    grid.appendChild(cell);
+  }
+
+  els.calendarHeatmap.appendChild(grid);
+}
+
+function renderCalendarStatus() {
+  if (!els.calendarStatus || !els.calendarStatusText) return;
+  if (state.specificDay) {
+    els.calendarStatus.hidden = false;
+    els.calendarStatusText.textContent = `已篩選 ${formatDate(state.specificDay)}`;
+  } else {
+    els.calendarStatus.hidden = true;
+    els.calendarStatusText.textContent = "";
+  }
+}
+
+function onCalendarCellClick(event) {
+  const cell = event.target.closest("button.calendar-cell[data-date]");
+  if (!cell) return;
+  const date = cell.dataset.date;
+  state.specificDay = date;
+  state.quickRange = "specificDay";
+  setActiveTab("list");
+  render();
+}
+
+function clearCalendarSpecificDay() {
+  if (!state.specificDay) return;
+  state.specificDay = null;
+  state.quickRange = state.month ? "customMonth" : "month";
+  render();
+}
+
 // ─── Trend Chart ─────────────────────────────────────────────
 
 function renderTrendChart() {
@@ -2102,12 +2270,16 @@ function renderTrendChart() {
   const max = Math.max(...data.map((d) => Math.max(d.income, d.expense)), 1);
   const niceMax = niceCeil(max);
 
+  const isNarrow = typeof window !== "undefined" && window.matchMedia
+    ? window.matchMedia("(max-width: 759px)").matches
+    : false;
+
   const W = 600;
-  const H = 220;
+  const H = isNarrow ? 150 : 220;
   const padL = 44;
   const padR = 12;
-  const padT = 12;
-  const padB = 32;
+  const padT = isNarrow ? 8 : 12;
+  const padB = isNarrow ? 26 : 32;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
   const groupW = innerW / data.length;
@@ -2420,8 +2592,9 @@ function renderRecurringList() {
     const amount = document.createElement("strong");
     amount.textContent = formatCurrency(rule.amount);
 
+    const ruleIcon = getCategoryIcon(rule.type, rule.category);
     const title = document.createElement("span");
-    title.textContent = rule.note || rule.category;
+    title.textContent = rule.note ? `${ruleIcon} ${rule.note}` : `${ruleIcon} ${rule.category}`;
 
     top.appendChild(pill);
     top.appendChild(amount);
@@ -2432,7 +2605,7 @@ function renderRecurringList() {
     const freqLabel = rule.frequency === "monthly"
       ? `每月 ${rule.dayOfMonth} 號`
       : `每週${WEEKDAY_LABELS[rule.dayOfWeek]}`;
-    meta.textContent = `${freqLabel}・${rule.category}・${rule.account}・自 ${formatDate(rule.startDate)}`;
+    meta.textContent = `${freqLabel}・${ruleIcon} ${rule.category}・${rule.account}・自 ${formatDate(rule.startDate)}`;
 
     info.appendChild(top);
     info.appendChild(meta);

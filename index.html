@@ -188,7 +188,19 @@
         <ul id="accountBalances" class="account-list"></ul>
       </section>
 
-      <section class="panel trend-panel" id="chartSection" data-tab-panel="chart">
+      <section class="panel calendar-panel" id="chartSection" data-tab-panel="chart">
+        <div class="panel-head calendar-head">
+          <h2>當月支出熱力圖</h2>
+          <div class="calendar-status" id="calendarStatus" hidden>
+            <span id="calendarStatusText"></span>
+            <button type="button" class="calendar-status-clear" id="calendarStatusClear" aria-label="清除日期篩選">✕</button>
+          </div>
+        </div>
+        <p class="stats-subtitle">點任一格可跳到當日明細</p>
+        <div id="calendarHeatmap" class="calendar-heatmap" role="grid" aria-label="月曆熱力圖"></div>
+      </section>
+
+      <section class="panel trend-panel" data-tab-panel="chart">
         <h2>月度趨勢</h2>
         <p class="stats-subtitle">最近 6 個月收入與支出</p>
         <div id="trendChart" class="trend-chart"></div>
