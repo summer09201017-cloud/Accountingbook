@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg-sky: #f4f8fb;
   --bg-sand: #ffe9d2;
   --bg-mint: #d9f3ef;
@@ -1059,7 +1059,7 @@ select:focus {
   left: 50%;
   bottom: 1.2rem;
   transform: translateX(-50%);
-  z-index: 50;
+  z-index: 10000;
   display: grid;
   gap: 0.5rem;
   pointer-events: none;
@@ -1154,7 +1154,7 @@ select:focus {
   bottom: 0;
   margin-inline: auto;
   max-width: 540px;
-  z-index: 100;
+  z-index: 9999;
   min-height: var(--tab-bar-height);
   background: var(--card);
   border-top: 1px solid var(--line);
@@ -1162,13 +1162,18 @@ select:focus {
   border-right: 1px solid var(--line);
   border-top-left-radius: 18px;
   border-top-right-radius: 18px;
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   padding: 0.32rem 0.32rem calc(0.32rem + env(safe-area-inset-bottom));
   box-shadow: 0 -8px 24px rgba(31, 42, 55, 0.08);
   justify-content: space-around;
-  transform: translateZ(0);
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   will-change: transform;
+  touch-action: none;
+  contain: layout style;
 }
 
 .tab-btn {
@@ -1243,7 +1248,7 @@ select:focus {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 60;
+  z-index: 10001;
   background: var(--card);
   border-top: 1px solid var(--line);
   box-shadow: 0 -10px 30px rgba(31, 42, 55, 0.16);
@@ -1339,7 +1344,7 @@ select:focus {
 .icon-picker {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 10002;
   display: flex;
   align-items: flex-end;
   justify-content: center;

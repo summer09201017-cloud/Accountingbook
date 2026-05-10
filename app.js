@@ -1,4 +1,4 @@
-﻿const STORAGE_KEY = "ledger_entries_v1";
+const STORAGE_KEY = "ledger_entries_v1";
 const CATEGORY_STORAGE_KEY = "ledger_custom_categories_v1";
 const ACCOUNT_STORAGE_KEY = "ledger_custom_accounts_v1";
 const BUDGET_STORAGE_KEY = "ledger_budget_v1";
@@ -2769,6 +2769,29 @@ function setupTabs() {
     setActiveTab(btn.dataset.tabTarget);
   });
   setActiveTab(state.prefs.activeTab || DEFAULT_TAB, { silent: true });
+
+  // Keep tab bar & FAB pinned to the visual viewport bottom
+  // when the browser zooms, scrolls, or the soft keyboard appears.
+  if (window.visualViewport) {
+    const fixTabBarPosition = () => {
+      const vv = window.visualViewport;
+      const offsetY = window.innerHeight - (vv.height + vv.offsetTop);
+      const scale = vv.scale;
+      if (Math.abs(scale - 1) > 0.01 || Math.abs(offsetY) > 1) {
+        els.tabBar.style.transform = `translate3d(0, ${-offsetY}px, 0) scale(${1 / scale})`;
+        els.tabBar.style.transformOrigin = "center bottom";
+        els.fabBtn.style.transform = `translate3d(0, ${-offsetY}px, 0) scale(${1 / scale})`;
+        els.fabBtn.style.transformOrigin = "right bottom";
+      } else {
+        els.tabBar.style.transform = "translate3d(0, 0, 0)";
+        els.tabBar.style.transformOrigin = "";
+        els.fabBtn.style.transform = "";
+        els.fabBtn.style.transformOrigin = "";
+      }
+    };
+    window.visualViewport.addEventListener("resize", fixTabBarPosition);
+    window.visualViewport.addEventListener("scroll", fixTabBarPosition);
+  }
 }
 
 function setActiveTab(name, { silent = false } = {}) {
