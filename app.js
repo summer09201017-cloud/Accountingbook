@@ -212,6 +212,14 @@ const els = {
   calendarStatus: document.querySelector("#calendarStatus"),
   calendarStatusText: document.querySelector("#calendarStatusText"),
   calendarStatusClear: document.querySelector("#calendarStatusClear"),
+  calendarDayDetail: document.querySelector("#calendarDayDetail"),
+  dayDetailDate: document.querySelector("#dayDetailDate"),
+  dayDetailGoto: document.querySelector("#dayDetailGoto"),
+  dayDetailIncome: document.querySelector("#dayDetailIncome"),
+  dayDetailExpense: document.querySelector("#dayDetailExpense"),
+  dayDetailBalance: document.querySelector("#dayDetailBalance"),
+  dayDetailList: document.querySelector("#dayDetailList"),
+  dayDetailEmpty: document.querySelector("#dayDetailEmpty"),
   // Photo
   photoAttachBtn: document.querySelector("#photoAttachBtn"),
   photoInput: document.querySelector("#photoInput"),
@@ -363,6 +371,12 @@ function init() {
   }
   if (els.calendarStatusClear) {
     els.calendarStatusClear.addEventListener("click", clearCalendarSpecificDay);
+  }
+  if (els.dayDetailGoto) {
+    els.dayDetailGoto.addEventListener("click", () => {
+      if (!state.specificDay) return;
+      setActiveTab("list");
+    });
   }
 
   els.transactionList.addEventListener("click", onListAction);
@@ -621,6 +635,7 @@ function render() {
   renderTrendChart();
   renderCalendarHeatmap();
   renderCalendarStatus();
+  renderCalendarDayDetail();
   renderReport();
   renderRecurringList();
   renderAnnualReport();
@@ -2287,10 +2302,77 @@ function onCalendarCellClick(event) {
   const cell = event.target.closest("button.calendar-cell[data-date]");
   if (!cell) return;
   const date = cell.dataset.date;
-  state.specificDay = date;
-  state.quickRange = "specificDay";
-  setActiveTab("list");
+  if (state.specificDay === date) {
+    state.specificDay = null;
+    state.quickRange = state.month ? "customMonth" : "month";
+  } else {
+    state.specificDay = date;
+    state.quickRange = "specificDay";
+  }
   render();
+}
+
+function renderCalendarDayDetail() {
+  if (!els.calendarDayDetail) return;
+  const date = state.specificDay;
+  if (!date) {
+    els.calendarDayDetail.hidden = true;
+    return;
+  }
+
+  els.calendarDayDetail.hidden = false;
+  if (els.dayDetailDate) els.dayDetailDate.textContent = formatDate(date);
+
+  const dayEntries = state.entries
+    .filter((entry) => entry.date === date)
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  let income = 0;
+  let expense = 0;
+  for (const entry of dayEntries) {
+    if (entry.type === "income") income += entry.amount;
+    else if (entry.type === "expense") expense += entry.amount;
+  }
+  if (els.dayDetailIncome) els.dayDetailIncome.textContent = formatCurrency(income);
+  if (els.dayDetailExpense) els.dayDetailExpense.textContent = formatCurrency(expense);
+  if (els.dayDetailBalance) els.dayDetailBalance.textContent = formatCurrency(income - expense);
+
+  if (els.dayDetailList) {
+    els.dayDetailList.innerHTML = "";
+    for (const entry of dayEntries) {
+      const li = document.createElement("li");
+      li.className = `day-detail-item day-detail-item-${entry.type}`;
+
+      const left = document.createElement("div");
+      left.className = "day-detail-item-main";
+      const cat = document.createElement("span");
+      cat.className = "day-detail-item-cat";
+      cat.textContent = `${getCategoryIcon(entry.type, entry.category)} ${entry.category}`;
+      left.appendChild(cat);
+      if (entry.note) {
+        const note = document.createElement("span");
+        note.className = "day-detail-item-note";
+        note.textContent = entry.note;
+        left.appendChild(note);
+      }
+
+      const amt = document.createElement("strong");
+      amt.className = "day-detail-item-amount";
+      const sign = entry.type === "income" ? "+" : "-";
+      amt.textContent = `${sign}${formatCurrency(entry.amount)}`;
+
+      li.appendChild(left);
+      li.appendChild(amt);
+      els.dayDetailList.appendChild(li);
+    }
+  }
+
+  if (els.dayDetailEmpty) {
+    els.dayDetailEmpty.hidden = dayEntries.length > 0;
+  }
+  if (els.dayDetailGoto) {
+    els.dayDetailGoto.hidden = dayEntries.length === 0;
+  }
 }
 
 function clearCalendarSpecificDay() {

@@ -205,8 +205,30 @@
             <button type="button" class="calendar-status-clear" id="calendarStatusClear" aria-label="清除日期篩選">✕</button>
           </div>
         </div>
-        <p class="stats-subtitle">點任一格可跳到當日明細</p>
+        <p class="stats-subtitle">點任一格可查看當日收支，再點一次取消</p>
         <div id="calendarHeatmap" class="calendar-heatmap" role="grid" aria-label="月曆熱力圖"></div>
+        <div id="calendarDayDetail" class="calendar-day-detail" hidden>
+          <div class="day-detail-head">
+            <strong id="dayDetailDate"></strong>
+            <button type="button" class="day-detail-goto" id="dayDetailGoto">查看完整明細 →</button>
+          </div>
+          <div class="day-detail-stats">
+            <div class="day-detail-stat day-detail-income">
+              <span class="day-detail-label">收入</span>
+              <strong id="dayDetailIncome">$0</strong>
+            </div>
+            <div class="day-detail-stat day-detail-expense">
+              <span class="day-detail-label">支出</span>
+              <strong id="dayDetailExpense">$0</strong>
+            </div>
+            <div class="day-detail-stat day-detail-balance">
+              <span class="day-detail-label">結餘</span>
+              <strong id="dayDetailBalance">$0</strong>
+            </div>
+          </div>
+          <ul id="dayDetailList" class="day-detail-list" aria-label="當日交易"></ul>
+          <p id="dayDetailEmpty" class="day-detail-empty" hidden>當日無交易紀錄</p>
+        </div>
       </section>
 
       <section class="panel trend-panel" data-tab-panel="chart">
