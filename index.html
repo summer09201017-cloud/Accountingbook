@@ -113,6 +113,15 @@
             <input id="noteInput" type="text" maxlength="50" placeholder="可留空，例如：午餐、捷運儲值">
           </label>
 
+          <div class="photo-attach full-width">
+            <button class="ghost-btn photo-attach-btn" id="photoAttachBtn" type="button">📸 拍照 / 選圖</button>
+            <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
+            <div id="photoPreview" class="photo-preview" hidden>
+              <img id="photoPreviewImg" alt="收據預覽">
+              <button class="photo-remove-btn" id="photoRemoveBtn" type="button" aria-label="移除照片">✕</button>
+            </div>
+          </div>
+
           <button class="primary-btn full-width" id="submitBtn" type="submit">加入記帳</button>
           <button class="ghost-btn full-width" id="cancelEditBtn" type="button" hidden>取消編輯</button>
           <p class="form-hint" id="formHint" role="status" aria-live="polite"></p>
@@ -208,7 +217,15 @@
 
       <section class="panel stats-panel" data-tab-panel="chart">
         <h2>分類占比</h2>
-        <p class="stats-subtitle">依當前篩選條件統計（支出）</p>
+        <p class="stats-subtitle">依當前篩選條件統計（支出）・點擊圖塊查看明細</p>
+        <div id="donutChartContainer" class="donut-chart-container">
+          <svg id="donutChart" class="donut-chart" viewBox="0 0 300 300" role="img" aria-label="分類占比圓餅圖"></svg>
+          <div id="donutCenter" class="donut-center">
+            <span class="donut-center-label">總支出</span>
+            <strong id="donutCenterAmount" class="donut-center-amount">$0</strong>
+          </div>
+        </div>
+        <div id="donutLegend" class="donut-legend"></div>
         <div id="categoryChart" class="category-chart"></div>
       </section>
 
@@ -218,6 +235,23 @@
         <div id="reportContent" class="report-content"></div>
       </section>
 
+      <section class="panel report-panel" data-tab-panel="report">
+        <h2>📅 年度報表</h2>
+        <p class="stats-subtitle">全年收支總覽與趨勢分析</p>
+        <div class="annual-year-selector">
+          <button class="ghost-btn" id="annualPrevYear" type="button">◀</button>
+          <strong id="annualYearLabel"></strong>
+          <button class="ghost-btn" id="annualNextYear" type="button">▶</button>
+        </div>
+        <div id="annualReportContent" class="report-content"></div>
+      </section>
+
+      <section class="panel achievements-panel" data-tab-panel="report">
+        <h2>🏆 記帳成就</h2>
+        <p class="stats-subtitle">持續記帳，解鎖更多成就徽章！</p>
+        <div id="achievementsList" class="achievements-grid"></div>
+      </section>
+
       <section class="panel settings-panel budget-settings-panel" id="settingsSection" data-tab-panel="settings">
         <h2>預算設定</h2>
         <label class="budget-input-label">
@@ -225,6 +259,26 @@
           <input id="budgetInput" type="number" inputmode="decimal" min="0" step="100" placeholder="例如 30000">
         </label>
         <p class="settings-hint">設定後即會於「記帳」頁顯示進度條。</p>
+        <div class="category-budget-section">
+          <h3>🎯 分類預算</h3>
+          <p class="settings-hint">為各分類設定個別上限，超支時會提醒。</p>
+          <div id="categoryBudgetList" class="category-budget-list"></div>
+        </div>
+      </section>
+
+      <section class="panel settings-panel" data-tab-panel="settings">
+        <h2>🔔 記帳提醒</h2>
+        <div class="reminder-settings">
+          <label class="reminder-toggle-label">
+            <span>每日提醒記帳</span>
+            <button class="ghost-btn" id="reminderToggleBtn" type="button">未啟用</button>
+          </label>
+          <label class="reminder-time-label">
+            提醒時間
+            <input id="reminderTimeInput" type="time" value="21:00">
+          </label>
+          <p class="settings-hint" id="reminderStatus">啟用後，將在設定時間發送通知提醒你記帳。</p>
+        </div>
       </section>
 
       <section class="panel recurring-panel" data-tab-panel="settings">
@@ -371,6 +425,7 @@
           <strong class="item-amount"></strong>
         </div>
         <p class="item-meta"></p>
+        <img class="item-photo-thumb" hidden alt="收據">
       </div>
       <div class="item-actions">
         <button class="edit-btn" type="button">編輯</button>
@@ -378,6 +433,22 @@
       </div>
     </li>
   </template>
+
+  <div class="photo-viewer" id="photoViewer" hidden>
+    <div class="photo-viewer-overlay" id="photoViewerOverlay"></div>
+    <div class="photo-viewer-content">
+      <img id="photoViewerImg" alt="收據照片">
+      <button class="ghost-btn photo-viewer-close" id="photoViewerClose" type="button">✕ 關閉</button>
+    </div>
+  </div>
+
+  <div class="achievement-popup" id="achievementPopup" hidden>
+    <div class="achievement-popup-icon" id="achievementPopupIcon"></div>
+    <div class="achievement-popup-text">
+      <strong id="achievementPopupTitle"></strong>
+      <span id="achievementPopupDesc"></span>
+    </div>
+  </div>
 
   <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 

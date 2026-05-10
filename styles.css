@@ -1815,11 +1815,13 @@ select:focus {
 @media (max-width: 759px) {
   body {
     padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom));
+    overflow-x: hidden;
   }
 
   .app-shell {
-    width: min(100% - 0.45rem, 540px);
+    width: min(100% - 1.2rem, 540px);
     margin: 0.42rem auto 0.7rem;
+    overflow-x: hidden;
   }
 
   .desktop-nav {
@@ -1895,8 +1897,9 @@ select:focus {
   .summary-panel,
   .list-panel,
   .accounts-panel {
-    padding: 0.5rem;
+    padding: 0.65rem;
     border-radius: 16px;
+    overflow: hidden;
   }
 
   body[data-active-tab="record"] section h2,
@@ -1928,6 +1931,8 @@ select:focus {
   body[data-active-tab="record"] .entry-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.34rem 0.38rem;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   body[data-active-tab="record"] .entry-form label,
@@ -1942,9 +1947,11 @@ select:focus {
   body[data-active-tab="list"] .list-panel select {
     width: 100%;
     min-width: 0;
+    max-width: 100%;
     min-height: 2rem;
     border-radius: 10px;
     padding: 0.28rem 0.44rem;
+    box-sizing: border-box;
   }
 
   body[data-active-tab="record"] .custom-category {
@@ -2069,20 +2076,25 @@ select:focus {
 
   body[data-active-tab="list"] .filters {
     gap: 0.4rem 0.42rem;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   body[data-active-tab="list"] .filters label,
   body[data-active-tab="list"] .search-field {
     min-width: 0;
     overflow: hidden;
+    max-width: 100%;
   }
 
   body[data-active-tab="list"] .search-field {
-    grid-column: auto;
+    grid-column: 1 / -1;
   }
 
   body[data-active-tab="list"] .search-field input {
     text-overflow: ellipsis;
+    width: 100%;
+    max-width: 100%;
   }
 
   body[data-active-tab="list"] .transaction-list {
@@ -2118,8 +2130,8 @@ select:focus {
   }
 
   body[data-active-tab="list"] .transaction-item {
-    padding: 0.5rem 0.45rem;
-    gap: 0.36rem;
+    padding: 0.55rem 0.5rem;
+    gap: 0.4rem;
   }
 
   body[data-active-tab="list"] .account-list {
@@ -2244,4 +2256,486 @@ select:focus {
   body:not([data-active-tab="record"]) .fab {
     display: inline-flex;
   }
+}
+
+/* ── Donut Chart ───────────────────────────────────────── */
+
+.donut-chart-container {
+  position: relative;
+  width: min(260px, 100%);
+  margin: 0 auto 0.6rem;
+}
+
+.donut-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.donut-center-label {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--ink-500);
+  font-weight: 600;
+}
+
+.donut-center-amount {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--ink-900);
+}
+
+.donut-slice {
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  transform-origin: 150px 150px;
+}
+
+.donut-slice:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.donut-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.7rem;
+}
+
+.donut-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--ink-700);
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  transition: background 0.18s ease;
+}
+
+.donut-legend-item:hover {
+  background: var(--surface-strong);
+}
+
+.donut-legend-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Photo Attach ──────────────────────────────────────── */
+
+.photo-attach {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.photo-attach-btn {
+  text-align: center;
+  font-size: 0.84rem;
+}
+
+.photo-preview {
+  position: relative;
+  width: 100%;
+  max-width: 200px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.photo-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.photo-remove-btn {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(196, 69, 54, 0.85);
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.item-photo-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  margin-top: 0.35rem;
+  transition: transform 0.14s ease;
+}
+
+.item-photo-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* ── Photo Viewer ──────────────────────────────────────── */
+
+.photo-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10003;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: rise-in 0.2s ease;
+}
+
+.photo-viewer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.photo-viewer-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.photo-viewer-content img {
+  max-width: 100%;
+  max-height: 75vh;
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.photo-viewer-close {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ── Category Budget ───────────────────────────────────── */
+
+.category-budget-section {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.category-budget-section h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+}
+
+.category-budget-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+
+.category-budget-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.category-budget-row .cb-icon {
+  font-size: 1.1rem;
+}
+
+.category-budget-row .cb-name {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--ink-900);
+}
+
+.category-budget-row .cb-status {
+  font-size: 0.72rem;
+  color: var(--ink-500);
+}
+
+.category-budget-row .cb-status.over {
+  color: var(--expense-500);
+  font-weight: 700;
+}
+
+.category-budget-row .cb-status.warn {
+  color: var(--accent-500);
+}
+
+.category-budget-row .cb-status.safe {
+  color: var(--income-500);
+}
+
+.category-budget-row input {
+  width: 5rem;
+  min-width: 4rem;
+  text-align: right;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.82rem;
+}
+
+/* ── Annual Report ─────────────────────────────────────── */
+
+.annual-year-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.annual-year-selector strong {
+  font-size: 1.1rem;
+  min-width: 5rem;
+  text-align: center;
+}
+
+.annual-year-selector .ghost-btn {
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.annual-month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.annual-month-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  background: var(--surface-soft);
+  text-align: center;
+}
+
+.annual-month-card .am-month {
+  font-size: 0.74rem;
+  color: var(--ink-500);
+  font-weight: 700;
+}
+
+.annual-month-card .am-income {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--income-500);
+  font-weight: 700;
+  margin-top: 0.15rem;
+}
+
+.annual-month-card .am-expense {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--expense-500);
+  font-weight: 700;
+}
+
+/* ── Achievements ──────────────────────────────────────── */
+
+.achievements-panel {
+  padding: 1rem;
+}
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.55rem;
+}
+
+.achievement-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.65rem;
+  background: var(--surface-soft);
+  text-align: center;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.achievement-card.unlocked {
+  border-color: var(--brand-500);
+  background: rgba(63, 165, 159, 0.08);
+}
+
+.achievement-card.locked {
+  opacity: 0.5;
+  filter: grayscale(0.6);
+}
+
+.achievement-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(31, 42, 55, 0.12);
+}
+
+.achievement-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.achievement-card.locked .achievement-icon {
+  filter: grayscale(1);
+}
+
+.achievement-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--ink-900);
+  display: block;
+}
+
+.achievement-desc {
+  font-size: 0.7rem;
+  color: var(--ink-500);
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.achievement-progress {
+  margin-top: 0.35rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: rgba(31, 42, 55, 0.1);
+  overflow: hidden;
+}
+
+:root[data-theme="dark"] .achievement-progress {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.achievement-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(130deg, var(--brand-700), var(--brand-500));
+  transition: width 0.3s ease;
+}
+
+.achievement-card.unlocked .achievement-progress-bar {
+  background: linear-gradient(130deg, var(--income-500), #34d399);
+}
+
+/* ── Achievement Popup ─────────────────────────────────── */
+
+.achievement-popup {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10005;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(130deg, rgba(63, 165, 159, 0.95), rgba(43, 122, 120, 0.95));
+  color: #fff;
+  box-shadow: 0 16px 40px rgba(31, 42, 55, 0.3);
+  animation: achievement-pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  max-width: calc(100vw - 2rem);
+}
+
+.achievement-popup.popup-out {
+  animation: achievement-pop-out 0.3s ease forwards;
+}
+
+.achievement-popup-icon {
+  font-size: 2rem;
+}
+
+.achievement-popup-text strong {
+  display: block;
+  font-size: 0.88rem;
+}
+
+.achievement-popup-text span {
+  font-size: 0.76rem;
+  opacity: 0.9;
+}
+
+@keyframes achievement-pop-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes achievement-pop-out {
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-15px) scale(0.9);
+  }
+}
+
+/* ── Reminder Settings ─────────────────────────────────── */
+
+.reminder-settings {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.reminder-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.reminder-toggle-label .ghost-btn {
+  min-width: 4.5rem;
+  text-align: center;
+}
+
+.reminder-toggle-label .ghost-btn.active {
+  background: linear-gradient(130deg, var(--brand-700), var(--brand-500));
+  color: #fff;
+  border-color: transparent;
+}
+
+.reminder-time-label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--ink-700);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.reminder-time-label input {
+  max-width: 8rem;
 }

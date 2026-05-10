@@ -2,9 +2,12 @@ const STORAGE_KEY = "ledger_entries_v1";
 const CATEGORY_STORAGE_KEY = "ledger_custom_categories_v1";
 const ACCOUNT_STORAGE_KEY = "ledger_custom_accounts_v1";
 const BUDGET_STORAGE_KEY = "ledger_budget_v1";
+const CATEGORY_BUDGET_STORAGE_KEY = "ledger_category_budgets_v1";
 const RECURRING_STORAGE_KEY = "ledger_recurring_v1";
 const PREFS_STORAGE_KEY = "ledger_prefs_v1";
 const CATEGORY_ICON_STORAGE_KEY = "ledger_category_icons_v1";
+const ACHIEVEMENTS_STORAGE_KEY = "ledger_achievements_v1";
+const REMINDER_STORAGE_KEY = "ledger_reminder_v1";
 const UNDO_TIMEOUT_MS = 5000;
 const TREND_MONTHS = 6;
 const WEEKDAY_LABELS = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
@@ -208,7 +211,38 @@ const els = {
   calendarHeatmap: document.querySelector("#calendarHeatmap"),
   calendarStatus: document.querySelector("#calendarStatus"),
   calendarStatusText: document.querySelector("#calendarStatusText"),
-  calendarStatusClear: document.querySelector("#calendarStatusClear")
+  calendarStatusClear: document.querySelector("#calendarStatusClear"),
+  // Photo
+  photoAttachBtn: document.querySelector("#photoAttachBtn"),
+  photoInput: document.querySelector("#photoInput"),
+  photoPreview: document.querySelector("#photoPreview"),
+  photoPreviewImg: document.querySelector("#photoPreviewImg"),
+  photoRemoveBtn: document.querySelector("#photoRemoveBtn"),
+  photoViewer: document.querySelector("#photoViewer"),
+  photoViewerOverlay: document.querySelector("#photoViewerOverlay"),
+  photoViewerImg: document.querySelector("#photoViewerImg"),
+  photoViewerClose: document.querySelector("#photoViewerClose"),
+  // Donut
+  donutChart: document.querySelector("#donutChart"),
+  donutCenterAmount: document.querySelector("#donutCenterAmount"),
+  donutLegend: document.querySelector("#donutLegend"),
+  // Annual
+  annualYearLabel: document.querySelector("#annualYearLabel"),
+  annualPrevYear: document.querySelector("#annualPrevYear"),
+  annualNextYear: document.querySelector("#annualNextYear"),
+  annualReportContent: document.querySelector("#annualReportContent"),
+  // Achievements
+  achievementsList: document.querySelector("#achievementsList"),
+  achievementPopup: document.querySelector("#achievementPopup"),
+  achievementPopupIcon: document.querySelector("#achievementPopupIcon"),
+  achievementPopupTitle: document.querySelector("#achievementPopupTitle"),
+  achievementPopupDesc: document.querySelector("#achievementPopupDesc"),
+  // Category Budget
+  categoryBudgetList: document.querySelector("#categoryBudgetList"),
+  // Reminder
+  reminderToggleBtn: document.querySelector("#reminderToggleBtn"),
+  reminderTimeInput: document.querySelector("#reminderTimeInput"),
+  reminderStatus: document.querySelector("#reminderStatus")
 };
 
 const state = {
@@ -229,7 +263,12 @@ const state = {
   activeTab: DEFAULT_TAB,
   pendingCategoryIcon: FALLBACK_ICON,
   iconPickerContext: null,
-  numpadActive: false
+  numpadActive: false,
+  pendingPhoto: null,
+  annualYear: new Date().getFullYear(),
+  categoryBudgets: loadCategoryBudgets(),
+  achievementsUnlocked: loadAchievements(),
+  reminder: loadReminder()
 };
 
 migrateEntries();
@@ -360,6 +399,11 @@ function init() {
   setupNumpad();
   setupIconPicker();
   setupCategoryIconPicker();
+  setupPhotoAttach();
+  setupAnnualReport();
+  setupCategoryBudgets();
+  setupReminder();
+  setupPhotoViewer();
 
   registerServiceWorker();
   render();
@@ -429,6 +473,7 @@ function onCreateEntry(event) {
     account,
     date,
     note,
+    photo: state.pendingPhoto || null,
     createdAt: Date.now()
   };
 
@@ -438,9 +483,11 @@ function onCreateEntry(event) {
 
   els.amountInput.value = "";
   els.noteInput.value = "";
+  clearPendingPhoto();
   updateAmountPreview();
   updateHint("", false);
   render();
+  checkAchievements();
   showToast("已加入一筆記帳。");
 }
 
@@ -568,6 +615,7 @@ function render() {
   renderList(filtered);
   renderTotals(filtered);
   renderCategoryChart(filtered);
+  renderDonutChart(filtered);
   renderBudget();
   renderAccountBalances();
   renderTrendChart();
@@ -575,6 +623,9 @@ function render() {
   renderCalendarStatus();
   renderReport();
   renderRecurringList();
+  renderAnnualReport();
+  renderAchievements();
+  renderCategoryBudgetList();
 }
 
 function getFilteredEntries() {
@@ -702,6 +753,14 @@ function renderList(entries) {
 
     editBtn.dataset.id = entry.id;
     deleteBtn.dataset.id = entry.id;
+
+    const photoThumb = node.querySelector(".item-photo-thumb");
+    if (entry.photo && photoThumb) {
+      photoThumb.src = entry.photo;
+      photoThumb.hidden = false;
+      photoThumb.dataset.photo = entry.photo;
+    }
+
     fragment.appendChild(node);
   }
 
