@@ -31,6 +31,7 @@
     <nav class="desktop-nav" aria-label="桌機快速導覽">
       <a href="#recordSection">📝 記帳</a>
       <a href="#listSection">📋 明細</a>
+      <a href="#calendarSection">📅 日曆</a>
       <a href="#chartSection">📊 圖表</a>
       <a href="#reportSection">📄 報告</a>
       <a href="#settingsSection">⚙️ 設定</a>
@@ -197,7 +198,7 @@
         <ul id="accountBalances" class="account-list"></ul>
       </section>
 
-      <section class="panel calendar-panel" id="chartSection" data-tab-panel="chart">
+      <section class="panel calendar-panel" id="calendarSection" data-tab-panel="calendar">
         <div class="panel-head calendar-head">
           <h2>當月支出熱力圖</h2>
           <div class="calendar-status" id="calendarStatus" hidden>
@@ -231,7 +232,7 @@
         </div>
       </section>
 
-      <section class="panel trend-panel" data-tab-panel="chart">
+      <section class="panel trend-panel" id="chartSection" data-tab-panel="chart">
         <h2>月度趨勢</h2>
         <p class="stats-subtitle">最近 6 個月收入與支出</p>
         <div id="trendChart" class="trend-chart"></div>
@@ -390,6 +391,9 @@
     </button>
     <button type="button" class="tab-btn" data-tab-target="list">
       <span class="tab-icon" aria-hidden="true">📋</span><span class="tab-label">明細</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab-target="calendar">
+      <span class="tab-icon" aria-hidden="true">📅</span><span class="tab-label">日曆</span>
     </button>
     <button type="button" class="tab-btn" data-tab-target="chart">
       <span class="tab-icon" aria-hidden="true">📊</span><span class="tab-label">圖表</span>

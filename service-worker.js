@@ -1,4 +1,4 @@
-const CACHE_NAME = "ledger-pwa-v13";
+const CACHE_NAME = "ledger-pwa-v14";
 const ASSETS = [
   "./",
   "./index.html",
