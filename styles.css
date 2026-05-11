@@ -2051,7 +2051,7 @@ select:focus {
     width: 100%;
     padding: 0.7rem;
     border-radius: 16px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   body[data-active-tab="record"] section h2,
@@ -2084,7 +2084,7 @@ select:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.34rem 0.38rem;
     max-width: 100%;
-    overflow: hidden;
+    overflow: visible;
   }
 
   body[data-active-tab="record"] .entry-form > * {

@@ -1693,6 +1693,7 @@ function toggleTheme() {
   state.prefs.theme = next;
   persistPrefs();
   applyTheme();
+  showToast(next === "dark" ? "🌙 已切換為深色模式" : "☀️ 已切換為淺色模式");
 }
 
 function defaultPrefs() {
