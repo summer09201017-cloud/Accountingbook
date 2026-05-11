@@ -3147,4 +3147,164 @@ function renderIconPickerGrid(groupIndex) {
   els.iconPickerGrid.appendChild(fragment);
 }
 
+// ─── Photo Attach / Viewer ───────────────────────────────
+
+function loadPendingPhotoFromEntry(entry) {
+  state.pendingPhoto = entry?.photo || null;
+  refreshPhotoPreview();
+}
+
+function refreshPhotoPreview() {
+  if (!els.photoPreview || !els.photoPreviewImg) return;
+  if (state.pendingPhoto) {
+    els.photoPreviewImg.src = state.pendingPhoto;
+    els.photoPreview.hidden = false;
+  } else {
+    els.photoPreviewImg.removeAttribute("src");
+    els.photoPreview.hidden = true;
+  }
+}
+
+function clearPendingPhoto() {
+  state.pendingPhoto = null;
+  if (els.photoInput) els.photoInput.value = "";
+  refreshPhotoPreview();
+}
+
+function setupPhotoAttach() {
+  if (!els.photoAttachBtn || !els.photoInput) return;
+
+  els.photoAttachBtn.addEventListener("click", () => {
+    els.photoInput.value = "";
+    els.photoInput.click();
+  });
+
+  els.photoInput.addEventListener("change", (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("僅支援圖片檔案。");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.pendingPhoto = typeof reader.result === "string" ? reader.result : null;
+      refreshPhotoPreview();
+    };
+    reader.onerror = () => showToast("讀取圖片失敗，請再試一次。");
+    reader.readAsDataURL(file);
+  });
+
+  if (els.photoRemoveBtn) {
+    els.photoRemoveBtn.addEventListener("click", () => {
+      clearPendingPhoto();
+    });
+  }
+}
+
+function setupPhotoViewer() {
+  if (!els.photoViewer) return;
+  const close = () => {
+    els.photoViewer.hidden = true;
+    if (els.photoViewerImg) els.photoViewerImg.removeAttribute("src");
+  };
+  if (els.photoViewerClose) els.photoViewerClose.addEventListener("click", close);
+  if (els.photoViewerOverlay) els.photoViewerOverlay.addEventListener("click", close);
+
+  if (els.transactionList) {
+    els.transactionList.addEventListener("click", (event) => {
+      const img = event.target.closest("img.item-photo-thumb");
+      if (!img || !img.src) return;
+      if (!els.photoViewerImg) return;
+      els.photoViewerImg.src = img.src;
+      els.photoViewer.hidden = false;
+    });
+  }
+}
+
+// ─── Stubs for documented-but-unimplemented features ─────
+
+function loadCategoryBudgets() {
+  try {
+    const raw = localStorage.getItem(CATEGORY_BUDGET_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistCategoryBudgets() {
+  localStorage.setItem(CATEGORY_BUDGET_STORAGE_KEY, JSON.stringify(state.categoryBudgets));
+}
+
+function loadAchievements() {
+  try {
+    const raw = localStorage.getItem(ACHIEVEMENTS_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistAchievements() {
+  localStorage.setItem(
+    ACHIEVEMENTS_STORAGE_KEY,
+    JSON.stringify(Array.from(state.achievementsUnlocked))
+  );
+}
+
+function loadReminder() {
+  try {
+    const raw = localStorage.getItem(REMINDER_STORAGE_KEY);
+    if (!raw) return { enabled: false, time: "21:00" };
+    const parsed = JSON.parse(raw);
+    return {
+      enabled: !!(parsed && parsed.enabled),
+      time: parsed && typeof parsed.time === "string" ? parsed.time : "21:00"
+    };
+  } catch {
+    return { enabled: false, time: "21:00" };
+  }
+}
+
+function persistReminder() {
+  localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(state.reminder));
+}
+
+function checkAchievements() {
+  // Not yet implemented — documented in CLAUDE.md but not built.
+}
+
+function renderDonutChart() {
+  // Not yet implemented — documented in CLAUDE.md but not built.
+}
+
+function renderAnnualReport() {
+  // Not yet implemented — documented in CLAUDE.md but not built.
+}
+
+function renderAchievements() {
+  // Not yet implemented — documented in CLAUDE.md but not built.
+}
+
+function renderCategoryBudgetList() {
+  // Not yet implemented — documented in CLAUDE.md but not built.
+}
+
+function setupAnnualReport() {
+  // Not yet implemented.
+}
+
+function setupCategoryBudgets() {
+  // Not yet implemented.
+}
+
+function setupReminder() {
+  // Not yet implemented.
+}
+
 init();

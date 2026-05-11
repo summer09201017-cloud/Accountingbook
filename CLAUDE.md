@@ -27,7 +27,7 @@ For UI changes, the only meaningful verification is opening the page in a browse
 
 ## Service worker cache versioning
 
-`service-worker.js` has `CACHE_NAME = "ledger-pwa-vN"`. **Bump N whenever you change `index.html`, `app.js`, or `styles.css`**, otherwise installed PWAs will keep serving stale assets. The activate handler deletes any cache whose name doesn't match the current `CACHE_NAME`, so bumping is the only step needed. Current version: **v16**.
+`service-worker.js` has `CACHE_NAME = "ledger-pwa-vN"`. **Bump N whenever you change `index.html`, `app.js`, or `styles.css`**, otherwise installed PWAs will keep serving stale assets. The activate handler deletes any cache whose name doesn't match the current `CACHE_NAME`, so bumping is the only step needed. Current version: **v17**.
 
 ## Architecture
 
@@ -146,15 +146,18 @@ Updated 2026-05-10. When you finish something here, move it from 待做 to 已�
 - 深淺色主題（含跟隨系統）
 - PWA：安裝、離線快取、行動版底部 tab bar、FAB、數字鍵盤
 - 桌機水平導覽列
-- 📅 年度報表（12 個月收支總覽 + 年度趨勢分析）
-- 🏆 記帳成就系統（遊戲化徽章、解鎖彈窗）
 - 📸 拍照 / 選圖附件（base64 存入 entry，含全螢幕檢視器）
-- 🎯 分類預算（各分類個別上限 + 進度條）
-- 📊 互動式 SVG 甜甜圈圖（可點擊分類展開明細）
-- 🔔 記帳提醒（Notification API 每日定時提醒）
-- 🔧 手機版 tab bar 消失修復（viewport + CSS + visualViewport JS 三層防護）
+- 🔧 手機版 tab bar 消失修復（viewport + CSS + visualViewport JS 三層防護)
+- 📅 月曆熱力圖點日內嵌當日收支明細（不再強制跳轉到明細分頁）
 
 ### 🚧 待做
+
+**已部分接線、待實作（HTML + 元素 refs + storage keys 都已存在，但 render/setup 函式只有 stub）**
+- 📅 年度報表（`renderAnnualReport`/`setupAnnualReport`）
+- 🏆 記帳成就系統（`renderAchievements`/`checkAchievements`）— `loadAchievements` 已能讀寫 localStorage
+- 🎯 分類預算（`renderCategoryBudgetList`/`setupCategoryBudgets`）— `loadCategoryBudgets` 已能讀寫
+- 📊 互動式 SVG 甜甜圈圖（`renderDonutChart`）— 容器 `#donutChart` 已在 HTML
+- 🔔 記帳提醒（`setupReminder`）— `loadReminder`/`persistReminder` 已能讀寫
 
 **短期（CP 高、各 1–3 小時）**
 - 長按交易一鍵複製到今天
