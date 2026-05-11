@@ -27,7 +27,7 @@ For UI changes, the only meaningful verification is opening the page in a browse
 
 ## Service worker cache versioning
 
-`service-worker.js` has `CACHE_NAME = "ledger-pwa-vN"`. **Bump N whenever you change `index.html`, `app.js`, or `styles.css`**, otherwise installed PWAs will keep serving stale assets. The activate handler deletes any cache whose name doesn't match the current `CACHE_NAME`, so bumping is the only step needed. Current version: **v19**.
+`service-worker.js` has `CACHE_NAME = "ledger-pwa-vN"`. **Bump N whenever you change `index.html`, `app.js`, or `styles.css`**, otherwise installed PWAs will keep serving stale assets. The activate handler deletes any cache whose name doesn't match the current `CACHE_NAME`, so bumping is the only step needed. Current version: **v20**.
 
 ## Architecture
 

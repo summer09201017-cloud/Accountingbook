@@ -1427,6 +1427,13 @@ function isSafariBrowser() {
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
 
+  let reloadedForUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadedForUpdate) return;
+    reloadedForUpdate = true;
+    window.location.reload();
+  });
+
   try {
     await navigator.serviceWorker.register("./service-worker.js");
   } catch {

@@ -1184,7 +1184,14 @@ select:focus {
   cursor: pointer;
   font-weight: 600;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(43, 122, 120, 0.18);
+  pointer-events: auto;
   transition: color 0.18s ease, background 0.18s ease;
+}
+
+.tab-btn .tab-icon,
+.tab-btn .tab-label {
+  pointer-events: none;
 }
 
 .tab-btn .tab-icon {
@@ -1954,9 +1961,12 @@ select:focus {
 /* ── Mobile tab navigation ─────────────────────────────── */
 
 @media (max-width: 759px) {
+  html {
+    overflow-x: hidden;
+  }
+
   body {
     padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom));
-    overflow-x: hidden;
   }
 
   .app-shell {
