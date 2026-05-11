@@ -1167,13 +1167,7 @@ select:focus {
   padding: 0.32rem 0.32rem calc(0.32rem + env(safe-area-inset-bottom));
   box-shadow: 0 -8px 24px rgba(31, 42, 55, 0.08);
   justify-content: space-around;
-  -webkit-transform: translate3d(0, 0, 0);
-  transform: translate3d(0, 0, 0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  will-change: transform;
-  touch-action: manipulation;
-  contain: layout style;
+  pointer-events: auto;
 }
 
 .tab-btn {

@@ -2905,35 +2905,10 @@ function setCategoryIcon(type, name, icon) {
 // ─── Tab navigation ──────────────────────────────────────
 
 function setupTabs() {
-  els.tabBar.addEventListener("click", (event) => {
-    const btn = event.target.closest("button[data-tab-target]");
-    if (!btn) return;
-    setActiveTab(btn.dataset.tabTarget);
-  });
-  setActiveTab(state.prefs.activeTab || DEFAULT_TAB, { silent: true });
-
-  // Keep tab bar & FAB pinned to the visual viewport bottom
-  // when the browser zooms, scrolls, or the soft keyboard appears.
-  if (window.visualViewport) {
-    const fixTabBarPosition = () => {
-      const vv = window.visualViewport;
-      const offsetY = window.innerHeight - (vv.height + vv.offsetTop);
-      const scale = vv.scale;
-      if (Math.abs(scale - 1) > 0.01 || Math.abs(offsetY) > 1) {
-        els.tabBar.style.transform = `translate3d(0, ${-offsetY}px, 0) scale(${1 / scale})`;
-        els.tabBar.style.transformOrigin = "center bottom";
-        els.fabBtn.style.transform = `translate3d(0, ${-offsetY}px, 0) scale(${1 / scale})`;
-        els.fabBtn.style.transformOrigin = "right bottom";
-      } else {
-        els.tabBar.style.transform = "translate3d(0, 0, 0)";
-        els.tabBar.style.transformOrigin = "";
-        els.fabBtn.style.transform = "";
-        els.fabBtn.style.transformOrigin = "";
-      }
-    };
-    window.visualViewport.addEventListener("resize", fixTabBarPosition);
-    window.visualViewport.addEventListener("scroll", fixTabBarPosition);
+  for (const btn of els.tabBar.querySelectorAll("button[data-tab-target]")) {
+    btn.addEventListener("click", () => setActiveTab(btn.dataset.tabTarget));
   }
+  setActiveTab(state.prefs.activeTab || DEFAULT_TAB, { silent: true });
 }
 
 function setActiveTab(name, { silent = false } = {}) {
