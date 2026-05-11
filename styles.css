@@ -1172,7 +1172,7 @@ select:focus {
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   will-change: transform;
-  touch-action: none;
+  touch-action: manipulation;
   contain: layout style;
 }
 
