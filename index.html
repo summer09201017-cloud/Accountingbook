@@ -14,6 +14,46 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    try {
+      var s = localStorage.getItem('expense-settings');
+      if (s) {
+        var parsed = JSON.parse(s);
+        var isDark = parsed.theme === 'dark';
+        if (parsed.theme === 'auto') isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+        var p = null;
+        var palette = {
+          blue: ['#3b82f6', '#2563eb'],
+          green: ['#10b981', '#059669'],
+          purple: ['#8b5cf6', '#7c3aed'],
+          orange: ['#f97316', '#ea580c'],
+          pink: ['#ec4899', '#db2777'],
+          red: ['#ef4444', '#dc2626'],
+          cyan: ['#06b6d4', '#0891b2'],
+          teal: ['#14b8a6', '#0d9488'],
+          indigo: ['#6366f1', '#4f46e5'],
+          yellow: ['#eab308', '#ca8a04']
+        };
+        if (parsed.accentColor === 'custom' && typeof parsed.accentCustomHex === 'string' && /^#[0-9a-fA-F]{6}$/.test(parsed.accentCustomHex)) {
+          var hex = parsed.accentCustomHex.replace('#', '');
+          var dim = function(i){
+            var n = Math.max(0, parseInt(hex.slice(i, i+2), 16) - 28);
+            var h = n.toString(16);
+            return h.length < 2 ? '0' + h : h;
+          };
+          p = [parsed.accentCustomHex, '#' + dim(0) + dim(2) + dim(4)];
+        } else if (parsed.accentColor) {
+          p = palette[parsed.accentColor];
+        }
+        if (p) {
+          document.documentElement.style.setProperty('--primary', p[0]);
+          document.documentElement.style.setProperty('--primary-hover', p[1]);
+          document.documentElement.setAttribute('data-accent', parsed.accentColor);
+        }
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body data-active-tab="record">
   <div class="app-shell">
@@ -39,6 +79,9 @@
     <main class="layout">
       <section class="panel input-panel" id="recordSection" data-tab-panel="record">
         <h2>新增一筆</h2>
+        <div class="nlp-input-container full-width" style="margin-bottom: 16px;">
+          <input id="nlpInput" type="text" placeholder="✨ 快速記帳：例如「昨天 午餐 150」" class="nlp-input">
+        </div>
         <div class="quick-templates" id="quickTemplates" aria-label="常用記帳模板">
           <button class="template-btn" type="button" data-template="breakfast">
             <span>🍳 早餐</span>
@@ -147,7 +190,7 @@
 
         <div class="budget-section budget-section-display">
           <div class="budget-head">
-            <span class="budget-input-label budget-display-label">本月預算進度</span>
+            <span class="budget-input-label budget-display-label">本月預算進度 <span id="budgetSprite" aria-hidden="true"></span></span>
             <span class="budget-status" id="budgetStatus">尚未設定</span>
           </div>
           <div class="budget-track">
@@ -368,10 +411,52 @@
         </form>
       </section>
 
-      <section class="panel actions-panel" data-tab-panel="settings">
-        <h2>外觀與資料</h2>
+      <section class="panel theme-panel" data-tab-panel="settings">
+        <h2>外觀與主題</h2>
         <div class="settings-actions">
           <button class="ghost-btn" id="themeToggleBtn" type="button" aria-label="切換為深色模式">🌙 切換深淺色</button>
+        </div>
+        <div class="theme-picker-section">
+          <h3>主題色</h3>
+          <div class="theme-swatches" id="themeSwatches" aria-label="選擇主題色">
+            <button type="button" class="theme-swatch" data-color="blue" style="background-color: #3b82f6;" aria-label="藍色"></button>
+            <button type="button" class="theme-swatch" data-color="green" style="background-color: #10b981;" aria-label="綠色"></button>
+            <button type="button" class="theme-swatch" data-color="purple" style="background-color: #8b5cf6;" aria-label="紫色"></button>
+            <button type="button" class="theme-swatch" data-color="orange" style="background-color: #f97316;" aria-label="橘色"></button>
+            <button type="button" class="theme-swatch" data-color="pink" style="background-color: #ec4899;" aria-label="粉色"></button>
+            <button type="button" class="theme-swatch" data-color="red" style="background-color: #ef4444;" aria-label="紅色"></button>
+            <button type="button" class="theme-swatch" data-color="cyan" style="background-color: #06b6d4;" aria-label="湖水青"></button>
+            <button type="button" class="theme-swatch" data-color="teal" style="background-color: #14b8a6;" aria-label="薄荷綠"></button>
+            <button type="button" class="theme-swatch" data-color="indigo" style="background-color: #6366f1;" aria-label="深空藍"></button>
+            <button type="button" class="theme-swatch" data-color="yellow" style="background-color: #eab308;" aria-label="金黃黃"></button>
+            <button type="button" class="theme-swatch custom-swatch" data-color="custom" aria-label="自訂顏色">
+              <span class="custom-swatch-inner"></span>
+            </button>
+          </div>
+          <input type="color" id="customColorInput" hidden>
+          <p class="settings-hint" id="themeFeedbackText"></p>
+        </div>
+      </section>
+
+      <section class="panel system-panel" data-tab-panel="settings">
+        <h2>系統與隱私</h2>
+        <div class="storage-warning-container" id="storageWarningContainer" style="margin-bottom: 16px;">
+          <div class="budget-head">
+            <span class="budget-input-label budget-display-label">本機儲存空間用量</span>
+            <span class="budget-status" id="storageUsageText">計算中...</span>
+          </div>
+          <div class="budget-track">
+            <div class="budget-bar" id="storageBar"></div>
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button class="ghost-btn" id="pinLockToggleBtn" type="button">🔐 啟用 PIN 碼鎖</button>
+        </div>
+      </section>
+
+      <section class="panel actions-panel" data-tab-panel="settings">
+        <h2>資料管理</h2>
+        <div class="settings-actions">
           <button class="ghost-btn" id="exportBtn" type="button">匯出 CSV</button>
           <button class="ghost-btn" id="exportJsonBtn" type="button">備份 JSON</button>
           <button class="ghost-btn" id="importJsonBtn" type="button">還原 JSON</button>
@@ -469,6 +554,30 @@
     <div class="achievement-popup-text">
       <strong id="achievementPopupTitle"></strong>
       <span id="achievementPopupDesc"></span>
+    </div>
+  </div>
+
+  <div class="pin-lock-overlay" id="pinLockOverlay" hidden>
+    <div class="pin-lock-container">
+      <h2 id="pinLockTitle">請輸入 PIN 碼</h2>
+      <div class="pin-dots" id="pinDots">
+        <span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span>
+      </div>
+      <p class="pin-error" id="pinError" hidden>密碼錯誤，請重試</p>
+      <div class="pin-numpad">
+        <button type="button" class="pin-key" data-val="1">1</button>
+        <button type="button" class="pin-key" data-val="2">2</button>
+        <button type="button" class="pin-key" data-val="3">3</button>
+        <button type="button" class="pin-key" data-val="4">4</button>
+        <button type="button" class="pin-key" data-val="5">5</button>
+        <button type="button" class="pin-key" data-val="6">6</button>
+        <button type="button" class="pin-key" data-val="7">7</button>
+        <button type="button" class="pin-key" data-val="8">8</button>
+        <button type="button" class="pin-key" data-val="9">9</button>
+        <button type="button" class="pin-key pin-cancel" id="pinCancelBtn">取消</button>
+        <button type="button" class="pin-key" data-val="0">0</button>
+        <button type="button" class="pin-key pin-del" data-val="del">⌫</button>
+      </div>
     </div>
   </div>
 

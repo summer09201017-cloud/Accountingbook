@@ -250,7 +250,21 @@ const els = {
   // Reminder
   reminderToggleBtn: document.querySelector("#reminderToggleBtn"),
   reminderTimeInput: document.querySelector("#reminderTimeInput"),
-  reminderStatus: document.querySelector("#reminderStatus")
+  reminderStatus: document.querySelector("#reminderStatus"),
+  // New features
+  nlpInput: document.querySelector("#nlpInput"),
+  budgetSprite: document.querySelector("#budgetSprite"),
+  themeSwatches: document.querySelector("#themeSwatches"),
+  customColorInput: document.querySelector("#customColorInput"),
+  themeFeedbackText: document.querySelector("#themeFeedbackText"),
+  storageUsageText: document.querySelector("#storageUsageText"),
+  storageBar: document.querySelector("#storageBar"),
+  pinLockToggleBtn: document.querySelector("#pinLockToggleBtn"),
+  pinLockOverlay: document.querySelector("#pinLockOverlay"),
+  pinDots: document.querySelector("#pinDots"),
+  pinError: document.querySelector("#pinError"),
+  pinCancelBtn: document.querySelector("#pinCancelBtn"),
+  pinNumpad: document.querySelector(".pin-numpad")
 };
 
 const state = {
@@ -418,9 +432,16 @@ function init() {
   setupCategoryBudgets();
   setupReminder();
   setupPhotoViewer();
+  
+  // New feature setups
+  setupThemePicker();
+  setupStorageWarning();
+  setupPinLock();
+  setupNlpInput();
 
   registerServiceWorker();
   render();
+  checkVersionUpdate();
 }
 
 function onCreateEntry(event) {
@@ -502,6 +523,7 @@ function onCreateEntry(event) {
   updateHint("", false);
   render();
   checkAchievements();
+  updateStorageWarning();
   showToast("å·²åŠ å…¥ä¸€ç­†è¨˜å¸³ã€‚");
 }
 
@@ -762,9 +784,15 @@ function renderList(entries) {
 
     const account = entry.account || DEFAULT_ACCOUNTS[0];
     const icon = getCategoryIcon(entry.type, entry.category);
-    const notePart = entry.note ? `ãƒ»${entry.note}` : "";
+    let notePart = entry.note ? `ãƒ»${entry.note}` : "";
+    
+    // Tag formatting
+    if (notePart) {
+      notePart = notePart.replace(/#(\S+)/g, '<span class="tag-highlight">#$1</span>');
+    }
+
     const recurringPart = entry.recurringId ? "ãƒ»ðŸ”" : "";
-    meta.textContent = `${formatDate(entry.date)}ãƒ»${icon} ${entry.category}ãƒ»${account}${notePart}${recurringPart}`;
+    meta.innerHTML = `${formatDate(entry.date)}ãƒ»${icon} ${entry.category}ãƒ»${account}${notePart}${recurringPart}`;
 
     editBtn.dataset.id = entry.id;
     deleteBtn.dataset.id = entry.id;
@@ -1020,6 +1048,15 @@ function createBudgetReportBody(spent) {
       wrapper.classList.add("safe");
       status.textContent = `å·²ç”¨ ${(ratio * 100).toFixed(0)}%`;
     }
+    
+    // Update budget sprite
+    if (els.budgetSprite) {
+      if (ratio >= 1) els.budgetSprite.textContent = "ðŸ˜­";
+      else if (ratio >= 0.8) els.budgetSprite.textContent = "ðŸ˜°";
+      else if (ratio >= 0.5) els.budgetSprite.textContent = "ðŸ™‚";
+      else els.budgetSprite.textContent = "ðŸ¤©";
+    }
+
     detail.textContent = `é ç®— ${formatCurrency(budget)}ï¼Œç›®å‰æ”¯å‡º ${formatCurrency(spent)}ï¼Œå‰©é¤˜ ${formatCurrency(remaining)}ã€‚`;
   }
 
@@ -3170,8 +3207,30 @@ function setupPhotoAttach() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      state.pendingPhoto = typeof reader.result === "string" ? reader.result : null;
-      refreshPhotoPreview();
+      if (typeof reader.result !== "string") return;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 800;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round(height * maxDim / width);
+            width = maxDim;
+          } else {
+            width = Math.round(width * maxDim / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        state.pendingPhoto = canvas.toDataURL("image/jpeg", 0.6);
+        refreshPhotoPreview();
+      };
+      img.src = reader.result;
     };
     reader.onerror = () => showToast("è®€å–åœ–ç‰‡å¤±æ•—ï¼Œè«‹å†è©¦ä¸€æ¬¡ã€‚");
     reader.readAsDataURL(file);
@@ -3290,3 +3349,286 @@ function setupReminder() {
 }
 
 init();
+// --- New Features Implementation ---
+
+// 1. Theme Picker & Version Check
+function setupThemePicker() {
+  if (!els.themeSwatches) return;
+  const settings = JSON.parse(localStorage.getItem('expense-settings') || '{}');
+  
+  const updateActiveSwatch = (color) => {
+    els.themeSwatches.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+    const target = els.themeSwatches.querySelector([data-color="\"]);
+    if (target) target.classList.add('active');
+  };
+  
+  if (settings.accentColor) updateActiveSwatch(settings.accentColor);
+
+  els.themeSwatches.addEventListener('click', (e) => {
+    const btn = e.target.closest('.theme-swatch');
+    if (!btn) return;
+    
+    const color = btn.dataset.color;
+    if (color === 'custom') {
+      els.customColorInput.click();
+      return;
+    }
+    
+    settings.accentColor = color;
+    localStorage.setItem('expense-settings', JSON.stringify(settings));
+    updateActiveSwatch(color);
+    window.location.reload(); // Reload to apply preload script
+  });
+
+  if (els.customColorInput) {
+    els.customColorInput.addEventListener('change', (e) => {
+      const hex = e.target.value;
+      settings.accentColor = 'custom';
+      settings.accentCustomHex = hex;
+      localStorage.setItem('expense-settings', JSON.stringify(settings));
+      
+      if (els.themeFeedbackText) {
+        els.themeFeedbackText.textContent = \¤w®M¥Î¦Û­q¦â½X \¡A±N©ó­«·s¸ü¤J«á¥Í®Ä\;
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        window.location.reload();
+      }
+    });
+  }
+}
+
+function checkVersionUpdate() {
+  const currentVersion = '1.1.0';
+  const lastVersion = localStorage.getItem('ledger_version');
+  if (lastVersion !== currentVersion) {
+    showToast(\?? §ó·s¦¨¥\¡I¥Ø«eª©¥» \¡A·s¼W¤F¼ÐÅÒ¡B¦Û­q¥DÃD¦â»P°O±b¤pºëÆFµ¥¥\¯à¡I\, { duration: 5000 });
+    localStorage.setItem('ledger_version', currentVersion);
+  }
+}
+
+// 2. Storage Warning
+function setupStorageWarning() {
+  updateStorageWarning();
+}
+
+async function updateStorageWarning() {
+  if (!els.storageUsageText || !els.storageBar || !navigator.storage || !navigator.storage.estimate) return;
+  try {
+    const estimate = await navigator.storage.estimate();
+    const usageMB = (estimate.usage / (1024 * 1024)).toFixed(2);
+    const quotaMB = (estimate.quota / (1024 * 1024)).toFixed(2);
+    const ratio = estimate.usage / estimate.quota;
+    
+    els.storageUsageText.textContent = \¤w¨Ï¥Î \ MB / \ MB\;
+    const pct = Math.min(ratio * 100, 100);
+    els.storageBar.style.width = \\%\;
+    
+    if (ratio > 0.8) {
+      els.storageBar.style.background = 'var(--expense-500)';
+      els.storageUsageText.style.color = 'var(--expense-500)';
+      els.storageUsageText.textContent += ' (ªÅ¶¡§Y±N¤£¨¬¡A«ØÄ³³Æ¥÷)';
+    } else {
+      els.storageBar.style.background = 'var(--primary)';
+      els.storageUsageText.style.color = 'var(--ink-500)';
+    }
+  } catch (e) {
+    els.storageUsageText.textContent = 'µLªk­pºâ';
+  }
+}
+
+// 3. PIN Lock
+function setupPinLock() {
+  const savedPin = localStorage.getItem('ledger_pin');
+  let currentInput = '';
+  let isSettingPin = false;
+  let settingPinStep = 0; // 0: Enter new, 1: Confirm new
+  let newPinBuffer = '';
+
+  if (savedPin && els.pinLockOverlay) {
+    els.pinLockOverlay.hidden = false;
+  }
+
+  if (els.pinLockToggleBtn) {
+    els.pinLockToggleBtn.textContent = savedPin ? '?? °±¥Î PIN ½XÂê' : '?? ±Ò¥Î PIN ½XÂê';
+    els.pinLockToggleBtn.addEventListener('click', () => {
+      if (savedPin) {
+        localStorage.removeItem('ledger_pin');
+        els.pinLockToggleBtn.textContent = '?? ±Ò¥Î PIN ½XÂê';
+        showToast('¤w°±¥Î PIN ½XÂê');
+      } else {
+        isSettingPin = true;
+        settingPinStep = 0;
+        currentInput = '';
+        newPinBuffer = '';
+        els.pinLockOverlay.hidden = false;
+        document.getElementById('pinLockTitle').textContent = '½Ð³]©w 4 ¦ì¼Æ PIN ½X';
+        updatePinDots(0);
+      }
+    });
+  }
+
+  if (els.pinNumpad) {
+    els.pinNumpad.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pin-key');
+      if (!btn) return;
+      
+      const val = btn.dataset.val;
+      if (btn.id === 'pinCancelBtn') {
+        if (isSettingPin) {
+          isSettingPin = false;
+          els.pinLockOverlay.hidden = true;
+          return;
+        }
+        return; // Cannot cancel if unlocking
+      }
+      
+      if (val === 'del') {
+        currentInput = currentInput.slice(0, -1);
+        updatePinDots(currentInput.length);
+        return;
+      }
+      
+      if (currentInput.length < 4) {
+        currentInput += val;
+        updatePinDots(currentInput.length);
+      }
+      
+      if (currentInput.length === 4) {
+        setTimeout(() => handlePinSubmit(), 200);
+      }
+    });
+  }
+
+  function updatePinDots(len) {
+    if (!els.pinDots) return;
+    const dots = els.pinDots.querySelectorAll('.pin-dot');
+    dots.forEach((dot, i) => {
+      if (i < len) dot.classList.add('filled');
+      else dot.classList.remove('filled');
+    });
+    if (els.pinError) els.pinError.hidden = true;
+  }
+
+  function handlePinSubmit() {
+    if (isSettingPin) {
+      if (settingPinStep === 0) {
+        newPinBuffer = currentInput;
+        currentInput = '';
+        settingPinStep = 1;
+        document.getElementById('pinLockTitle').textContent = '½Ð¦A¦¸¿é¤J¥H½T»{';
+        updatePinDots(0);
+      } else {
+        if (currentInput === newPinBuffer) {
+          localStorage.setItem('ledger_pin', currentInput);
+          isSettingPin = false;
+          els.pinLockOverlay.hidden = true;
+          els.pinLockToggleBtn.textContent = '?? °±¥Î PIN ½XÂê';
+          showToast('¤w³]©w PIN ½XÂê');
+        } else {
+          currentInput = '';
+          settingPinStep = 0;
+          document.getElementById('pinLockTitle').textContent = '±K½X¤£¤@­P¡A½Ð­«·s³]©w';
+          updatePinDots(0);
+          if (els.pinError) {
+            els.pinError.textContent = '±K½X¤£¤@­P';
+            els.pinError.hidden = false;
+          }
+        }
+      }
+    } else {
+      // Unlocking
+      if (currentInput === savedPin) {
+        els.pinLockOverlay.hidden = true;
+      } else {
+        currentInput = '';
+        updatePinDots(0);
+        if (els.pinError) {
+          els.pinError.textContent = '±K½X¿ù»~¡A½Ð­«¸Õ';
+          els.pinError.hidden = false;
+        }
+      }
+    }
+  }
+}
+
+// 4 & 6. NLP Quick Entry
+function setupNlpInput() {
+  if (!els.nlpInput) return;
+  els.nlpInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const text = els.nlpInput.value.trim();
+      if (!text) return;
+      
+      // Basic NLP Regex
+      // Look for amount (last number)
+      const amountMatch = text.match(/\d+$/) || text.match(/\d+/);
+      const amount = amountMatch ? amountMatch[0] : '';
+      
+      // Look for dates
+      let dateStr = toDateInputValue(new Date());
+      if (text.includes('¬Q¤Ñ')) {
+        const d = new Date(); d.setDate(d.getDate() - 1);
+        dateStr = toDateInputValue(d);
+      } else if (text.includes('«e¤Ñ')) {
+        const d = new Date(); d.setDate(d.getDate() - 2);
+        dateStr = toDateInputValue(d);
+      }
+      
+      let note = text.replace(amount, '').replace(/¬Q¤Ñ|«e¤Ñ/g, '').trim();
+      
+      els.typeInput.value = 'expense';
+      syncCategoryOptions('expense');
+      applyLastAccountPref();
+      
+      els.amountInput.value = amount;
+      els.dateInput.value = dateStr;
+      els.noteInput.value = note;
+      
+      updateAmountPreview();
+      updateHint('¤w³z¹L¦ÛµM»y¨¥¸ÑªR±a¤J¡A½Ð½T»{«á°e¥X¡C', false);
+      els.nlpInput.value = '';
+    }
+  });
+}
+
+// 7. Override checkAchievements for No Spend Challenge
+const originalCheckAchievements = checkAchievements;
+checkAchievements = function() {
+  if (typeof originalCheckAchievements === 'function') {
+    originalCheckAchievements();
+  }
+  
+  // No spend streak calculation
+  let currentStreak = 0;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  // Create a map of dates with expenses
+  const expenseDates = new Set();
+  state.entries.forEach(e => {
+    if (e.type === 'expense') expenseDates.add(e.date);
+  });
+  
+  // Count backwards from yesterday (don't count today until it's over, or just count backwards including today if we want to be generous)
+  for (let i=0; i<30; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = toDateInputValue(d);
+    
+    // Check if we have any entries on this date to know the app was used, 
+    // but no expenses. Actually, a true streak means NO expenses logged.
+    if (!expenseDates.has(dateStr)) {
+      currentStreak++;
+    } else {
+      break;
+    }
+  }
+  
+  if (currentStreak >= 3) {
+    if (!state.achievementsUnlocked.has("nospend_3")) {
+      state.achievementsUnlocked.add("nospend_3");
+      persistAchievements();
+      showAchievementPopup("nospend_3");
+    }
+  }
+};

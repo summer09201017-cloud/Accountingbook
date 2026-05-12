@@ -2893,3 +2893,132 @@ select:focus {
 .reminder-time-label input {
   max-width: 8rem;
 }
+/* Theme Swatches */
+.theme-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s;
+}
+.theme-swatch:hover {
+  transform: scale(1.1);
+}
+.theme-swatch.active {
+  border-color: var(--ink-900);
+  box-shadow: 0 0 0 2px var(--surface-100);
+}
+.custom-swatch {
+  background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+  position: relative;
+}
+.custom-swatch-inner {
+  position: absolute;
+  top: 4px; left: 4px; right: 4px; bottom: 4px;
+  background: var(--surface-100);
+  border-radius: 50%;
+}
+.theme-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* Storage Warning */
+.storage-warning-container {
+  background: var(--surface-200);
+  padding: 12px;
+  border-radius: 12px;
+}
+
+/* PIN Lock */
+.pin-lock-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--surface-100);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.pin-lock-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.pin-dots {
+  display: flex;
+  gap: 16px;
+}
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-900);
+  transition: background 0.2s;
+}
+.pin-dot.filled {
+  background: var(--ink-900);
+}
+.pin-error {
+  color: var(--expense-500);
+  font-size: 14px;
+  margin: 0;
+  height: 20px;
+}
+.pin-numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.pin-key {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-200);
+  color: var(--ink-900);
+  font-size: 24px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.pin-key:active {
+  background: var(--surface-300);
+}
+.pin-cancel {
+  font-size: 16px;
+}
+.pin-del {
+  font-size: 20px;
+}
+
+/* NLP Input */
+.nlp-input {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: 2px solid var(--surface-300);
+  background: var(--surface-200);
+  color: var(--ink-900);
+  transition: border-color 0.2s;
+}
+.nlp-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* Tags */
+.tag-highlight {
+  color: var(--primary);
+  font-weight: 500;
+  background: var(--surface-200);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin: 0 2px;
+}
