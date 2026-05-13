@@ -3632,3 +3632,140 @@ checkAchievements = function() {
     }
   }
 };
+
+// --- P0 Follow-up Features ---
+
+// 1. Sync Theme Color to Meta
+function syncMetaThemeColor() {
+  setTimeout(() => {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#2b7a78';
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      // If dark mode, maybe use surface color, or just primary
+      meta.setAttribute('content', isDark ? '#121212' : primaryColor);
+    }
+  }, 50);
+}
+
+const originalApplyThemeForMeta = applyTheme;
+applyTheme = function() {
+  originalApplyThemeForMeta();
+  syncMetaThemeColor();
+};
+// Initial sync
+syncMetaThemeColor();
+
+
+// 2. Note Datalist
+function setupNoteDatalist() {
+  const dataListId = 'frequentNotesList';
+  let dl = document.getElementById(dataListId);
+  if (!dl) {
+    dl = document.createElement('datalist');
+    dl.id = dataListId;
+    document.body.appendChild(dl);
+  }
+  
+  if (els.noteInput) {
+    els.noteInput.setAttribute('list', dataListId);
+  }
+
+  const noteFreq = {};
+  state.entries.forEach(e => {
+    if (e.note && e.note.trim()) {
+      const note = e.note.trim();
+      noteFreq[note] = (noteFreq[note] || 0) + 1;
+    }
+  });
+
+  const sortedNotes = Object.keys(noteFreq).sort((a,b) => noteFreq[b] - noteFreq[a]).slice(0, 20);
+  
+  dl.innerHTML = '';
+  sortedNotes.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    dl.appendChild(opt);
+  });
+}
+
+const originalOnCreateEntryForDatalist = onCreateEntry;
+onCreateEntry = function(event) {
+  originalOnCreateEntryForDatalist(event);
+  setupNoteDatalist();
+};
+setupNoteDatalist();
+
+
+// 3. 30 Days Streak Gold Theme
+const goldThemeHtml = '<button type="button" class="theme-swatch" data-color="gold" style="background: linear-gradient(135deg, #FFD700, #FDB931, #9E7B15);" aria-label="榮耀燙金 (30天成就解鎖)"></button>';
+
+checkAchievements = function() {
+  if (typeof originalCheckAchievements === 'function') {
+    originalCheckAchievements();
+  }
+  
+  let currentStreak = 0;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  const expenseDates = new Set();
+  state.entries.forEach(e => {
+    if (e.type === 'expense') expenseDates.add(e.date);
+  });
+  
+  for (let i=0; i<300; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = toDateInputValue(d);
+    
+    if (!expenseDates.has(dateStr)) {
+      currentStreak++;
+    } else {
+      break;
+    }
+  }
+  
+  if (currentStreak >= 3 && !state.achievementsUnlocked.has("nospend_3")) {
+    state.achievementsUnlocked.add("nospend_3");
+    persistAchievements();
+    showAchievementPopup("nospend_3", "連續 3 天無消費");
+  }
+  
+  if (currentStreak >= 30) {
+    if (!state.achievementsUnlocked.has("nospend_30")) {
+      state.achievementsUnlocked.add("nospend_30");
+      persistAchievements();
+      showAchievementPopup("nospend_30", "榮耀燙金！連續 30 天無消費");
+    }
+    // Unlock Gold Theme
+    if (els.themeSwatches && !els.themeSwatches.querySelector('[data-color="gold"]')) {
+      els.themeSwatches.insertAdjacentHTML('beforeend', goldThemeHtml);
+    }
+  }
+};
+
+// Also apply Gold Theme colors when active
+const originalSetupThemePicker = setupThemePicker;
+setupThemePicker = function() {
+  originalSetupThemePicker();
+  
+  // If we already have 30 days streak, append the button
+  if (state.achievementsUnlocked.has("nospend_30")) {
+    if (els.themeSwatches && !els.themeSwatches.querySelector('[data-color="gold"]')) {
+      els.themeSwatches.insertAdjacentHTML('beforeend', goldThemeHtml);
+    }
+  }
+  
+  const settings = JSON.parse(localStorage.getItem('expense-settings') || '{}');
+  if (settings.accentColor === 'gold') {
+    document.documentElement.style.setProperty('--primary', '#DAA520');
+    document.documentElement.style.setProperty('--primary-hover', '#B8860B');
+    document.documentElement.setAttribute('data-accent', 'gold');
+    syncMetaThemeColor();
+  }
+};
+
+// Re-run setupThemePicker to apply gold logic if needed
+setTimeout(setupThemePicker, 100);
+
